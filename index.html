@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="日報">
+<meta name="theme-color" content="#2c2416">
+<title>日報</title>
+<link id="apple-touch-icon" rel="apple-touch-icon" href="">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{background:#f5f0e8;font-family:'Hiragino Mincho ProN','Yu Mincho',Georgia,serif;color:#2c2416;overscroll-behavior:none;}
+input,button,textarea{font-family:inherit;}
+button{cursor:pointer;-webkit-appearance:none;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function(){
+  const c=document.createElement('canvas');c.width=180;c.height=180;
+  const ctx=c.getContext('2d');const r=36;
+  ctx.beginPath();ctx.moveTo(r,0);ctx.lineTo(180-r,0);ctx.quadraticCurveTo(180,0,180,r);
+  ctx.lineTo(180,180-r);ctx.quadraticCurveTo(180,180,180-r,180);
+  ctx.lineTo(r,180);ctx.quadraticCurveTo(0,180,0,180-r);
+  ctx.lineTo(0,r);ctx.quadraticCurveTo(0,0,r,0);ctx.closePath();
+  ctx.fillStyle='#2c2416';ctx.fill();
+  ctx.font='90px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('📋',90,95);
+  document.getElementById('apple-touch-icon').href=c.toDataURL('image/png');
+})();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+<script>
+const e=React.createElement;
+const {useState,useEffect,useRef,Fragment}=React;
+
+const LS={
+  get:(k)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch{return null;}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}},
+  del:(k)=>{try{localStorage.removeItem(k);}catch{}},
+};
+
+const TASKS_KEY='dr-tasks-v1';
+const SCHEDULE_KEY='dr-schedule-v1';
+const RESULTS_KEY='dr-results-v1';
+const TIMER_KEY='dr-timer-v1';
+const PRESETS_KEY='dr-presets-v1';
+const DEFAULT_PRESETS=['ミーティング','資料作成','メール対応','企画・検討','移動','休憩'];
+
+function getTodayStr(){return new Date().toISOString().slice(0,10);}
+function getTimeStr(d){return d.toTimeString().slice(0,5);}
+function formatDate(d){return new Date(d).toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});}
+function formatDateShort(d){return new Date(d).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric',weekday:'short'});}
+function timeToMin(t){if(!t)return 0;const[h,m]=t.split(':').map(Number);return h*60+m;}
+function calcDur(s,e2){if(!s||!e2)return null;const d=timeToMin(e2)-timeToMin(s);if(d<=0)return null;const h=Math.floor(d/60),m=d%60;return h===0?`${m}分`:m===0?`${h}時間`:`${h}時間${m}分`;}
+function calcMins(s,e2){if(!s||!e2)return 0;const d=timeToMin(e2)-timeToMin(s);return d>0?d:0;}
+function fmtTotal(mins){if(!mins||mins<=0)return null;const h=Math.floor(mins/60),m=mins%60;return h===0?`${m}分`:m===0?`${h}時間`:`${h}時間${m}分`;}
+function fmtElapsed(secs){const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60),s=secs%60;if(h>0)return`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;return`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;}
+function isOverdue(d){return d?d<getTodayStr():false;}
+function uid(){return Date.now()+Math.random();}
+
+const PRIORITY={high:{label:'高',color:'#c87060',bg:'#fdecea'},medium:{label:'中',color:'#d4a843',bg:'#fdf6e8'},low:{label:'低',color:'#6b9e78',bg:'#edf7f0'}};
+const SCH_COLOR='#7b8ec8';
+const RES_COLOR='#6b9e78';
+const BAR_COLORS=['#d4a843','#6b9e78','#7b8ec8','#c87060','#8f6fbd','#4fa8a8','#c4895a','#b06090'];
+
+function Card({style,children}){return e('div',{style:{background:'white',borderRadius:'14px',boxShadow:'0 2px 10px rgba(44,36,22,.07)',...style}},children);}
+function SL({text}){return e('div',{style:{fontSize:'10px',letterSpacing:'3px',opacity:0.4,marginBottom:'12px'}},text);}
+
+function DatePicker({value,onChange,max,label,totalMins}){
+  const isToday=value===getTodayStr();
+  return e(Card,{style:{padding:'14px 16px',marginBottom:'16px'}},
+    label&&e('div',{style:{fontSize:'10px',letterSpacing:'3px',opacity:0.4,marginBottom:'8px'}},label),
+    e('div',{style:{display:'flex',alignItems:'center',gap:'10px'}},
+      e('input',{type:'date',value,max:max||'9999-12-31',onChange:ev=>onChange(ev.target.value),style:{flex:1,border:'none',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent'}}),
+      !isToday&&e('button',{onClick:()=>onChange(getTodayStr()),style:{padding:'5px 12px',borderRadius:'14px',border:'1.5px solid #d4a843',background:'transparent',color:'#d4a843',fontSize:'11px'}},'今日')
+    ),
+    e('div',{style:{display:'flex',justifyContent:'space-between',marginTop:'6px'}},
+      e('span',{style:{fontSize:'12px',opacity:0.5}},formatDate(value),isToday&&e('span',{style:{marginLeft:'8px',color:'#d4a843',fontWeight:'700'}},'● 今日')),
+      totalMins>0&&e('span',{style:{fontSize:'11px',color:'#8a6a2e',fontWeight:'700',background:'#fdf6e8',padding:'2px 10px',borderRadius:'10px'}},`合計 ${fmtTotal(totalMins)}`)
+    )
+  );
+}
+
+function TimeRow({item,onUpdate,onDelete,accentColor,presets}){
+  const [open,setOpen]=useState(false);
+  const dur=calcDur(item.startTime,item.endTime);
+  if(open){
+    return e(Card,{style:{padding:'14px',marginBottom:'8px',borderLeft:`4px solid ${accentColor}`}},
+      presets.length>0&&e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'10px'}},
+        presets.map(p=>e('button',{key:p,onClick:()=>onUpdate({...item,title:p}),style:{padding:'4px 10px',borderRadius:'12px',border:'none',fontSize:'11px',background:item.title===p?'#d4a843':'#f5f0e8',color:item.title===p?'#2c2416':'#6b5a3a',fontWeight:item.title===p?'700':'400'}},p))
+      ),
+      e('input',{type:'text',value:item.title,onChange:ev=>onUpdate({...item,title:ev.target.value}),placeholder:'内容を入力…',
+        style:{width:'100%',border:'none',borderBottom:'1.5px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'2px 0 8px',marginBottom:'10px'}}),
+      e('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px',flexWrap:'wrap'}},
+        e('input',{type:'time',value:item.startTime||'',onChange:ev=>onUpdate({...item,startTime:ev.target.value}),style:{border:'none',outline:'none',fontSize:'14px',color:'#2c2416',background:'#f8f4ed',padding:'5px 8px',borderRadius:'8px',width:'88px'}}),
+        e('span',{style:{fontSize:'12px',opacity:0.35,fontWeight:'700'}},'→'),
+        e('input',{type:'time',value:item.endTime||'',onChange:ev=>onUpdate({...item,endTime:ev.target.value}),style:{border:'none',outline:'none',fontSize:'14px',color:'#2c2416',background:'#f8f4ed',padding:'5px 8px',borderRadius:'8px',width:'88px'}}),
+        dur&&e('span',{style:{fontSize:'11px',color:'#8a6a2e',fontWeight:'700',background:'#fdf6e8',padding:'3px 8px',borderRadius:'8px'}},dur)
+      ),
+      e('input',{type:'text',value:item.note||'',onChange:ev=>onUpdate({...item,note:ev.target.value}),placeholder:'メモ（任意）',
+        style:{width:'100%',border:'none',borderBottom:'1px solid #f0e8d8',outline:'none',fontSize:'13px',color:'#2c2416',background:'transparent',padding:'2px 0 6px',marginBottom:'12px'}}),
+      e('div',{style:{display:'flex',gap:'8px'}},
+        e('button',{onClick:()=>onDelete(item.id),style:{flex:1,padding:'9px',borderRadius:'10px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'13px',fontWeight:'700'}},'削除'),
+        e('button',{onClick:()=>setOpen(false),style:{flex:2,padding:'9px',borderRadius:'10px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'13px',fontWeight:'700'}},'完了')
+      )
+    );
+  }
+  return e('div',{onClick:()=>setOpen(true),style:{display:'flex',alignItems:'center',gap:'10px',padding:'11px 14px',background:'white',borderRadius:'12px',marginBottom:'7px',boxShadow:'0 1px 6px rgba(44,36,22,.06)',borderLeft:`4px solid ${accentColor}`,cursor:'pointer'}},
+    e('div',{style:{flex:1}},
+      e('div',{style:{fontSize:'14px',color:'#2c2416',marginBottom:'2px'}},item.title||'（未入力）'),
+      e('div',{style:{fontSize:'11px',color:'#8a6a2e'}},
+        item.startTime&&item.endTime?`${item.startTime} → ${item.endTime}`:item.startTime||'時間未設定',
+        dur&&e('span',{style:{marginLeft:'6px',opacity:0.7}},dur),
+        item.note&&e('span',{style:{marginLeft:'8px',opacity:0.45}},`📝 ${item.note}`)
+      )
+    ),
+    e('span',{style:{fontSize:'14px',opacity:0.25}},'›')
+  );
+}
+
+function TaskItem({task,onToggle,onUpdate,onDelete}){
+  const [editing,setEditing]=useState(false);
+  const [et,setEt]=useState(task.title);
+  const [ep,setEp]=useState(task.priority);
+  const [ed,setEd]=useState(task.dueDate||'');
+  const p=PRIORITY[task.priority]||PRIORITY.medium;
+  const overdue=isOverdue(task.dueDate)&&!task.done;
+  if(editing){
+    return e(Card,{style:{padding:'14px 16px',marginBottom:'8px',borderLeft:`4px solid ${PRIORITY[ep].color}`}},
+      e('input',{type:'text',value:et,onChange:ev=>setEt(ev.target.value),placeholder:'タスク名',autoFocus:true,
+        style:{width:'100%',border:'none',borderBottom:'1.5px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'2px 0 8px',marginBottom:'10px'}}),
+      e('div',{style:{display:'flex',gap:'6px',marginBottom:'10px'}},
+        ['high','medium','low'].map(pr=>e('button',{key:pr,onClick:()=>setEp(pr),style:{flex:1,padding:'6px',borderRadius:'10px',border:'none',fontSize:'12px',fontWeight:'700',background:ep===pr?PRIORITY[pr].color:PRIORITY[pr].bg,color:ep===pr?'white':PRIORITY[pr].color}},PRIORITY[pr].label))
+      ),
+      e('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px'}},
+        e('span',{style:{fontSize:'12px',opacity:0.5}},'期日'),
+        e('input',{type:'date',value:ed,onChange:ev=>setEd(ev.target.value),style:{flex:1,border:'none',outline:'none',fontSize:'13px',color:'#2c2416',background:'#f8f4ed',padding:'5px 8px',borderRadius:'8px'}})
+      ),
+      e('div',{style:{display:'flex',gap:'8px'}},
+        e('button',{onClick:()=>onDelete(task.id),style:{flex:1,padding:'9px',borderRadius:'10px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'13px',fontWeight:'700'}},'削除'),
+        e('button',{onClick:()=>{onUpdate(task.id,{title:et,priority:ep,dueDate:ed});setEditing(false);},style:{flex:2,padding:'9px',borderRadius:'10px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'13px',fontWeight:'700'}},'保存')
+      )
+    );
+  }
+  return e('div',{style:{display:'flex',alignItems:'flex-start',gap:'10px',padding:'12px 14px',background:'white',borderRadius:'14px',marginBottom:'8px',boxShadow:'0 1px 6px rgba(44,36,22,.06)',borderLeft:`4px solid ${task.done?'#ddd':p.color}`,opacity:task.done?0.55:1}},
+    e('button',{onClick:()=>onToggle(task.id),style:{width:'22px',height:'22px',borderRadius:'6px',border:`2px solid ${task.done?'#bbb':p.color}`,background:task.done?'#bbb':'transparent',flexShrink:0,marginTop:'1px',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px',fontWeight:'700'}},task.done&&'✓'),
+    e('div',{style:{flex:1},onClick:()=>!task.done&&setEditing(true)},
+      e('div',{style:{fontSize:'15px',textDecoration:task.done?'line-through':'none',color:task.done?'#aaa':'#2c2416',marginBottom:'3px'}},task.title||'（タスク名なし）'),
+      e('div',{style:{display:'flex',gap:'6px',alignItems:'center'}},
+        e('span',{style:{fontSize:'10px',fontWeight:'700',color:p.color,background:p.bg,padding:'2px 8px',borderRadius:'8px'}},p.label),
+        task.dueDate&&e('span',{style:{fontSize:'11px',color:overdue?'#c87060':'#8a6a2e',fontWeight:overdue?'700':'400'}},overdue?`⚠️ ${formatDateShort(task.dueDate)}`:`📅 ${formatDateShort(task.dueDate)}`)
+      )
+    ),
+    !task.done&&e('button',{onClick:()=>setEditing(true),style:{background:'none',border:'none',fontSize:'16px',opacity:0.25,padding:'0 0 0 4px',flexShrink:0}},'›')
+  );
+}
+
+function App(){
+  const today=getTodayStr();
+  const [tasks,setTasks]=useState([]);
+  const [taskFilter,setTaskFilter]=useState('active');
+  const [showNewTask,setShowNewTask]=useState(false);
+  const [ntTitle,setNtTitle]=useState('');
+  const [ntPriority,setNtPriority]=useState('medium');
+  const [ntDue,setNtDue]=useState('');
+  const [schedules,setSchedules]=useState({});
+  const [schDate,setSchDate]=useState(today);
+  const [results,setResults]=useState({});
+  const [resDate,setResDate]=useState(today);
+  const [timerActivity,setTimerActivity]=useState('');
+  const [timerStartStr,setTimerStartStr]=useState('');
+  const [timerStartISO,setTimerStartISO]=useState(null);
+  const [elapsed,setElapsed]=useState(0);
+  const [timerRunning,setTimerRunning]=useState(false);
+  const [dayDate,setDayDate]=useState(today);
+  const [presets,setPresets]=useState(DEFAULT_PRESETS);
+  const [newPreset,setNewPreset]=useState('');
+  const [view,setView]=useState('tasks');
+  const tickRef=useRef(null);
+
+  useEffect(()=>{
+    const t=LS.get(TASKS_KEY);if(t)setTasks(t);
+    const s=LS.get(SCHEDULE_KEY);if(s)setSchedules(s);
+    const r=LS.get(RESULTS_KEY);if(r)setResults(r);
+    const p=LS.get(PRESETS_KEY);if(p)setPresets(p);
+    const tr=LS.get(TIMER_KEY);
+    if(tr){setTimerActivity(tr.activity||'');setTimerStartStr(tr.startStr);setTimerStartISO(tr.startISO);setTimerRunning(true);setElapsed(Math.max(0,Math.floor((Date.now()-new Date(tr.startISO).getTime())/1000)));}
+  },[]);
+
+  // タイマー：開始時刻との差分で正確に計測
+  useEffect(()=>{
+    if(timerRunning&&timerStartISO){
+      const calc=()=>setElapsed(Math.max(0,Math.floor((Date.now()-new Date(timerStartISO).getTime())/1000)));
+      calc();
+      tickRef.current=setInterval(calc,1000);
+    }else{clearInterval(tickRef.current);}
+    return()=>clearInterval(tickRef.current);
+  },[timerRunning,timerStartISO]);
+
+  const saveTasks=(list)=>{setTasks(list);LS.set(TASKS_KEY,list);};
+  const addTask=()=>{if(!ntTitle.trim())return;saveTasks([{id:uid(),title:ntTitle.trim(),priority:ntPriority,dueDate:ntDue,done:false},...tasks]);setNtTitle('');setNtDue('');setNtPriority('medium');setShowNewTask(false);};
+  const toggleTask=(id)=>saveTasks(tasks.map(t=>t.id===id?{...t,done:!t.done}:t));
+  const updateTask=(id,fields)=>saveTasks(tasks.map(t=>t.id===id?{...t,...fields}:t));
+  const deleteTask=(id)=>saveTasks(tasks.filter(t=>t.id!==id));
+  const sortedTasks=[...tasks].sort((a,b)=>{if(a.done!==b.done)return a.done?1:-1;const po={high:0,medium:1,low:2};return po[a.priority]-po[b.priority];});
+  const filteredTasks=sortedTasks.filter(t=>taskFilter==='all'?true:taskFilter==='done'?t.done:!t.done);
+  const activeCnt=tasks.filter(t=>!t.done).length;
+  const overdueCnt=tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
+
+  const saveSch=(data)=>{setSchedules(data);LS.set(SCHEDULE_KEY,data);};
+  const schItems=schedules[schDate]||[];
+  const addSch=()=>{const last=schItems[schItems.length-1];saveSch({...schedules,[schDate]:[...schItems,{id:uid(),title:'',startTime:last?.endTime||'',endTime:'',note:''}]});};
+  const updateSch=(item)=>saveSch({...schedules,[schDate]:schItems.map(s=>s.id===item.id?item:s)});
+  const deleteSch=(id)=>saveSch({...schedules,[schDate]:schItems.filter(s=>s.id!==id)});
+  const sortedSch=[...schItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
+
+  const saveRes=(data)=>{setResults(data);LS.set(RESULTS_KEY,data);};
+  const resItems=results[resDate]||[];
+  const addRes=()=>saveRes({...results,[resDate]:[...resItems,{id:uid(),title:'',startTime:'',endTime:'',note:''}]});
+  const updateRes=(item)=>saveRes({...results,[resDate]:resItems.map(r=>r.id===item.id?item:r)});
+  const deleteRes=(id)=>saveRes({...results,[resDate]:resItems.filter(r=>r.id!==id)});
+  const sortedRes=[...resItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
+  const totalResMins=resItems.reduce((acc,r)=>acc+calcMins(r.startTime,r.endTime),0);
+
+  const handleStart=(act)=>{const a=(act||timerActivity).trim();if(!a)return;const now=new Date();const startISO=now.toISOString(),startStr=getTimeStr(now);setTimerActivity(a);setTimerStartStr(startStr);setTimerStartISO(startISO);setElapsed(0);setTimerRunning(true);LS.set(TIMER_KEY,{activity:a,startISO,startStr});};
+  const handleStop=()=>{const endStr=getTimeStr(new Date());setTimerRunning(false);const item={id:uid(),title:timerActivity,startTime:timerStartStr,endTime:endStr,note:''};const tr=results[today]||[];const updated={...results,[today]:[...tr,item]};saveRes(updated);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
+  const handleCancel=()=>{setTimerRunning(false);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
+
+  const savePresets=(list)=>{setPresets(list);LS.set(PRESETS_KEY,list);};
+  const addPreset=()=>{const v=newPreset.trim();if(!v||presets.includes(v))return;savePresets([...presets,v]);setNewPreset('');};
+  const removePreset=(p)=>savePresets(presets.filter(x=>x!==p));
+  const movePreset=(i,dir)=>{const l=[...presets];const j=i+dir;if(j<0||j>=l.length)return;[l[i],l[j]]=[l[j],l[i]];savePresets(l);};
+
+  const daySchItems=schedules[dayDate]||[];
+  const dayResItems=results[dayDate]||[];
+  const dayResMins=dayResItems.reduce((acc,r)=>acc+calcMins(r.startTime,r.endTime),0);
+  const ganttAll=[...daySchItems,...dayResItems].filter(i=>i.startTime&&i.endTime&&calcMins(i.startTime,i.endTime)>0);
+  const gMins=ganttAll.flatMap(i=>[timeToMin(i.startTime),timeToMin(i.endTime)]);
+  const gMin=gMins.length?Math.min(...gMins):timeToMin('09:00');
+  const gMax=gMins.length?Math.max(...gMins):timeToMin('18:00');
+  const gRange=gMax-gMin||60;
+  const gTicks=[];for(let h=Math.floor(gMin/60);h<=Math.ceil(gMax/60);h++)gTicks.push(h);
+
+  const NAV=[['tasks','✅','タスク'],['schedule','📅','スケジュール'],['results','📝','実績'],['daily','📊','デイリー'],['presets','🏷','項目']];
+  const pad={padding:'18px 16px',paddingBottom:'calc(20px + env(safe-area-inset-bottom))'};
+
+  return e('div',{style:{height:'100vh',display:'flex',flexDirection:'column',background:'#f5f0e8',overflow:'hidden'}},
+
+    // Header
+    e('div',{style:{background:'#2c2416',color:'#f5f0e8',paddingTop:'calc(14px + env(safe-area-inset-top))',paddingBottom:'10px',paddingLeft:'16px',paddingRight:'16px',flexShrink:0}},
+      e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
+        e('div',null,
+          e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報')
+        ),
+        e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
+          overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
+          timerRunning&&e('div',{style:{background:'#c87060',borderRadius:'20px',padding:'5px 12px',display:'flex',alignItems:'center',gap:'6px'}},
+            e('div',{style:{width:'7px',height:'7px',borderRadius:'50%',background:'white'}}),
+            e('span',{style:{fontSize:'13px',fontWeight:'700'}},fmtElapsed(elapsed))
+          )
+        )
+      ),
+      e('div',{style:{display:'flex',gap:'5px',overflowX:'auto',paddingBottom:'2px',WebkitOverflowScrolling:'touch'}},
+        NAV.map(([v,icon,label])=>e('button',{key:v,onClick:()=>setView(v),style:{padding:'6px 12px',borderRadius:'20px',border:'none',fontSize:'11px',whiteSpace:'nowrap',flexShrink:0,background:view===v?'#d4a843':'rgba(245,240,232,0.15)',color:view===v?'#2c2416':'#f5f0e8',fontWeight:view===v?'700':'400'}},`${icon} ${label}`))
+      )
+    ),
+
+    e('div',{style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}},
+
+      // TASKS
+      view==='tasks'&&e('div',{style:pad},
+        e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'16px'}},
+          e(Card,{style:{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}},e('div',{style:{fontSize:'26px',fontWeight:'700',color:'#d4a843'}},activeCnt),e('div',null,e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4}},'ACTIVE'),e('div',{style:{fontSize:'12px',opacity:0.6}},'未完了'))),
+          e(Card,{style:{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}},e('div',{style:{fontSize:'26px',fontWeight:'700',color:'#6b9e78'}},tasks.filter(t=>t.done).length),e('div',null,e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4}},'DONE'),e('div',{style:{fontSize:'12px',opacity:0.6}},'完了')))
+        ),
+        !showNewTask
+          ?e('button',{onClick:()=>setShowNewTask(true),style:{width:'100%',padding:'13px',borderRadius:'14px',border:'2px dashed rgba(212,168,67,0.6)',background:'transparent',color:'#8a6a2e',fontSize:'14px',marginBottom:'14px'}},'＋ タスクを追加')
+          :e(Card,{style:{padding:'18px',marginBottom:'14px',borderLeft:`4px solid ${PRIORITY[ntPriority].color}`}},
+              e(SL,{text:'NEW TASK'}),
+              e('input',{type:'text',value:ntTitle,onChange:ev=>setNtTitle(ev.target.value),placeholder:'タスク名を入力…',onKeyDown:ev=>ev.key==='Enter'&&addTask(),autoFocus:true,style:{width:'100%',border:'none',borderBottom:'1.5px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'2px 0 10px',marginBottom:'12px'}}),
+              e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'優先度'),
+              e('div',{style:{display:'flex',gap:'6px',marginBottom:'12px'}},['high','medium','low'].map(pr=>e('button',{key:pr,onClick:()=>setNtPriority(pr),style:{flex:1,padding:'7px',borderRadius:'10px',border:'none',fontSize:'12px',fontWeight:'700',background:ntPriority===pr?PRIORITY[pr].color:PRIORITY[pr].bg,color:ntPriority===pr?'white':PRIORITY[pr].color}},PRIORITY[pr].label))),
+              e('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px'}},e('span',{style:{fontSize:'12px',opacity:0.5}},'期日'),e('input',{type:'date',value:ntDue,onChange:ev=>setNtDue(ev.target.value),style:{flex:1,border:'none',outline:'none',fontSize:'13px',color:'#2c2416',background:'#f8f4ed',padding:'6px 10px',borderRadius:'8px'}})),
+              e('div',{style:{display:'flex',gap:'8px'}},
+                e('button',{onClick:()=>{setShowNewTask(false);setNtTitle('');setNtDue('');setNtPriority('medium');},style:{flex:1,padding:'10px',borderRadius:'12px',border:'none',background:'#f0ece4',color:'#8a6a2e',fontSize:'13px',fontWeight:'700'}},'キャンセル'),
+                e('button',{onClick:addTask,disabled:!ntTitle.trim(),style:{flex:2,padding:'10px',borderRadius:'12px',border:'none',background:ntTitle.trim()?'#2c2416':'#ccc',color:'#f5f0e8',fontSize:'13px',fontWeight:'700'}},'追加')
+              )
+            ),
+        e('div',{style:{display:'flex',gap:'6px',marginBottom:'14px'}},[['active','未完了'],['done','完了'],['all','すべて']].map(([f,l])=>e('button',{key:f,onClick:()=>setTaskFilter(f),style:{flex:1,padding:'8px',borderRadius:'10px',border:'none',fontSize:'12px',fontWeight:'700',background:taskFilter===f?'#2c2416':'white',color:taskFilter===f?'#f5f0e8':'#8a6a2e',boxShadow:'0 1px 4px rgba(44,36,22,0.07)'}},l))),
+        filteredTasks.length===0
+          ?e(Card,{style:{padding:'32px 20px',textAlign:'center'}},e('div',{style:{fontSize:'32px',marginBottom:'10px'}},'✅'),e('div',{style:{fontSize:'14px',opacity:0.5}},taskFilter==='done'?'完了したタスクはありません':'タスクはありません'))
+          :filteredTasks.map(t=>e(TaskItem,{key:t.id,task:t,onToggle:toggleTask,onUpdate:updateTask,onDelete:deleteTask}))
+      ),
+
+      // SCHEDULE
+      view==='schedule'&&e('div',{style:pad},
+        e(DatePicker,{value:schDate,onChange:setSchDate,label:'DATE'}),
+        e(SL,{text:'📅 スケジュール'}),
+        sortedSch.length===0&&e(Card,{style:{padding:'28px 20px',textAlign:'center',marginBottom:'12px'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'📅'),e('div',{style:{fontSize:'13px',opacity:0.5}},'スケジュールがありません')),
+        sortedSch.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateSch,onDelete:deleteSch,accentColor:SCH_COLOR,presets})),
+        e('button',{onClick:addSch,style:{width:'100%',padding:'13px',borderRadius:'14px',border:`2px dashed ${SCH_COLOR}80`,background:'transparent',color:SCH_COLOR,fontSize:'14px',marginTop:'4px'}},'＋ 予定を追加')
+      ),
+
+      // RESULTS
+      view==='results'&&e('div',{style:pad},
+        timerRunning
+          ?e(Card,{style:{background:'#2c2416',padding:'24px 20px',marginBottom:'16px',textAlign:'center'}},
+              e('div',{style:{fontSize:'11px',letterSpacing:'4px',color:'#d4a843',marginBottom:'8px'}},'RUNNING'),
+              e('div',{style:{fontSize:'44px',fontWeight:'700',color:'white',letterSpacing:'2px',marginBottom:'4px'}},fmtElapsed(elapsed)),
+              e('div',{style:{fontSize:'13px',color:'rgba(245,240,232,0.55)',marginBottom:'4px'}},`${timerStartStr} 〜 進行中`),
+              e('div',{style:{fontSize:'15px',color:'#f5f0e8',marginTop:'8px',fontWeight:'600'}},timerActivity),
+              e('div',{style:{display:'flex',gap:'10px',marginTop:'20px'}},
+                e('button',{onClick:handleCancel,style:{flex:1,padding:'12px',borderRadius:'14px',border:'1.5px solid rgba(245,240,232,0.3)',background:'transparent',color:'rgba(245,240,232,0.7)',fontSize:'14px'}},'キャンセル'),
+                e('button',{onClick:handleStop,style:{flex:2,padding:'12px',borderRadius:'14px',border:'none',background:'#c87060',color:'white',fontSize:'15px',fontWeight:'700'}},'⏹ 終了・登録')
+              )
+            )
+          :e(Card,{style:{padding:'20px',marginBottom:'16px'}},
+              e(SL,{text:'⏱ タイマーで記録（今日の実績に追加）'}),
+              e('div',{style:{fontSize:'12px',opacity:0.5,marginBottom:'8px'}},'これから何をしますか？'),
+              presets.length>0&&e('div',{style:{display:'flex',flexWrap:'wrap',gap:'7px',marginBottom:'12px'}},presets.map(p=>e('button',{key:p,onClick:()=>setTimerActivity(p),style:{padding:'6px 13px',borderRadius:'18px',border:'none',fontSize:'12px',background:timerActivity===p?'#d4a843':'#f5f0e8',color:timerActivity===p?'#2c2416':'#6b5a3a',fontWeight:timerActivity===p?'700':'400'}},p))),
+              e('input',{type:'text',value:timerActivity,onChange:ev=>setTimerActivity(ev.target.value),placeholder:'またはここに直接入力…',style:{width:'100%',border:'none',borderBottom:'2px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'6px 0 10px',marginBottom:'14px'}}),
+              e('button',{onClick:()=>handleStart(),disabled:!timerActivity.trim(),style:{width:'100%',padding:'14px',borderRadius:'14px',border:'none',background:timerActivity.trim()?'#d4a843':'#e0d8cc',color:timerActivity.trim()?'#2c2416':'#aaa',fontSize:'16px',fontWeight:'700'}},'▶ スタート')
+            ),
+        e(DatePicker,{value:resDate,onChange:setResDate,max:today,label:'記録する日付',totalMins:totalResMins}),
+        e(SL,{text:'📝 実績一覧（同時間帯に複数記録OK）'}),
+        sortedRes.length===0&&e(Card,{style:{padding:'28px 20px',textAlign:'center',marginBottom:'12px'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'📝'),e('div',{style:{fontSize:'13px',opacity:0.5}},'実績がありません')),
+        sortedRes.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateRes,onDelete:deleteRes,accentColor:RES_COLOR,presets})),
+        e('button',{onClick:addRes,style:{width:'100%',padding:'13px',borderRadius:'14px',border:`2px dashed ${RES_COLOR}80`,background:'transparent',color:RES_COLOR,fontSize:'14px',marginTop:'4px'}},'＋ 実績を手動追加')
+      ),
+
+      // DAILY
+      view==='daily'&&e('div',{style:pad},
+        e(DatePicker,{value:dayDate,onChange:setDayDate,max:today,label:'DATE'}),
+        e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'16px'}},
+          e(Card,{style:{padding:'14px',textAlign:'center'}},e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4,marginBottom:'4px'}},'スケジュール'),e('div',{style:{fontSize:'20px',fontWeight:'700',color:SCH_COLOR}},daySchItems.length,e('span',{style:{fontSize:'12px',fontWeight:'400',opacity:0.6}},' 件'))),
+          e(Card,{style:{padding:'14px',textAlign:'center'}},e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4,marginBottom:'4px'}},'実績合計'),e('div',{style:{fontSize:'20px',fontWeight:'700',color:RES_COLOR}},fmtTotal(dayResMins)||'—'))
+        ),
+        (daySchItems.length>0||dayResItems.length>0)
+          ?e(Fragment,null,
+              e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'16px'}},
+                e('div',null,
+                  e('div',{style:{fontSize:'10px',letterSpacing:'2px',color:SCH_COLOR,fontWeight:'700',marginBottom:'8px',opacity:0.8}},'📅 予定'),
+                  daySchItems.length===0&&e('div',{style:{fontSize:'12px',opacity:0.4,textAlign:'center',padding:'12px 0'}},'なし'),
+                  [...daySchItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00')).map(item=>e('div',{key:item.id,style:{background:'white',borderRadius:'10px',padding:'8px 10px',marginBottom:'6px',borderLeft:`3px solid ${SCH_COLOR}`,boxShadow:'0 1px 4px rgba(44,36,22,.06)'}},e('div',{style:{fontSize:'12px',fontWeight:'600',marginBottom:'2px'}},item.title||'（未入力）'),e('div',{style:{fontSize:'10px',color:'#8a6a2e'}},item.startTime&&item.endTime?`${item.startTime}→${item.endTime}`:item.startTime||'時間未設定')))
+                ),
+                e('div',null,
+                  e('div',{style:{fontSize:'10px',letterSpacing:'2px',color:RES_COLOR,fontWeight:'700',marginBottom:'8px',opacity:0.8}},'📝 実績'),
+                  dayResItems.length===0&&e('div',{style:{fontSize:'12px',opacity:0.4,textAlign:'center',padding:'12px 0'}},'なし'),
+                  [...dayResItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00')).map(item=>e('div',{key:item.id,style:{background:'white',borderRadius:'10px',padding:'8px 10px',marginBottom:'6px',borderLeft:`3px solid ${RES_COLOR}`,boxShadow:'0 1px 4px rgba(44,36,22,.06)'}},e('div',{style:{fontSize:'12px',fontWeight:'600',marginBottom:'2px'}},item.title||'（未入力）'),e('div',{style:{fontSize:'10px',color:'#8a6a2e'}},item.startTime&&item.endTime?`${item.startTime}→${item.endTime}`:item.startTime||'時間未設定',calcDur(item.startTime,item.endTime)&&e('span',{style:{marginLeft:'4px',opacity:0.7}},calcDur(item.startTime,item.endTime)))))
+                )
+              ),
+              ganttAll.length>0&&e(Card,{style:{overflow:'hidden',marginBottom:'16px'}},
+                e('div',{style:{padding:'14px 16px 10px',borderBottom:'1.5px solid #f0e8d8'}},
+                  e('div',{style:{fontSize:'10px',letterSpacing:'3px',opacity:0.4}},'GANTT CHART'),
+                  e('div',{style:{display:'flex',gap:'14px',marginTop:'6px'}},
+                    e('div',{style:{display:'flex',alignItems:'center',gap:'4px'}},e('div',{style:{width:'10px',height:'10px',borderRadius:'2px',background:SCH_COLOR}}),e('span',{style:{fontSize:'10px',opacity:0.6}},'予定')),
+                    e('div',{style:{display:'flex',alignItems:'center',gap:'4px'}},e('div',{style:{width:'10px',height:'10px',borderRadius:'2px',background:RES_COLOR}}),e('span',{style:{fontSize:'10px',opacity:0.6}},'実績'))
+                  )
+                ),
+                e('div',{style:{padding:'16px'}},
+                  e('div',{style:{position:'relative',paddingTop:'18px'}},
+                    gTicks.map(h=>{const p=((h*60-gMin)/gRange)*100;return e(Fragment,{key:h},e('div',{style:{position:'absolute',left:`${p}%`,top:0,bottom:0,width:'1px',background:'#f0e8d8'}}),e('div',{style:{position:'absolute',left:`${p}%`,top:0,fontSize:'9px',color:'#bbb',transform:'translateX(-50%)',whiteSpace:'nowrap'}},`${String(h).padStart(2,'0')}:00`));}),
+                    [...daySchItems].filter(i=>i.startTime&&i.endTime&&calcMins(i.startTime,i.endTime)>0).map(item=>{const l=((timeToMin(item.startTime)-gMin)/gRange)*100;const w=(calcMins(item.startTime,item.endTime)/gRange)*100;return e('div',{key:item.id,style:{position:'relative',marginBottom:'5px',zIndex:1}},e('div',{style:{position:'relative',height:'24px'}},e('div',{style:{position:'absolute',left:`${l}%`,width:`${Math.max(w,1.5)}%`,height:'100%',background:SCH_COLOR,borderRadius:'5px',opacity:0.8,display:'flex',alignItems:'center',paddingLeft:'6px',overflow:'hidden'}},e('span',{style:{fontSize:'10px',color:'white',fontWeight:'700',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},item.title))));}),
+                    [...dayResItems].filter(i=>i.startTime&&i.endTime&&calcMins(i.startTime,i.endTime)>0).map(item=>{const l=((timeToMin(item.startTime)-gMin)/gRange)*100;const w=(calcMins(item.startTime,item.endTime)/gRange)*100;return e('div',{key:item.id,style:{position:'relative',marginBottom:'5px',zIndex:1}},e('div',{style:{position:'relative',height:'24px'}},e('div',{style:{position:'absolute',left:`${l}%`,width:`${Math.max(w,1.5)}%`,height:'100%',background:RES_COLOR,borderRadius:'5px',opacity:0.85,display:'flex',alignItems:'center',paddingLeft:'6px',overflow:'hidden'}},e('span',{style:{fontSize:'10px',color:'white',fontWeight:'700',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},item.title))));})
+                  )
+                )
+              )
+            )
+          :e(Card,{style:{padding:'40px 20px',textAlign:'center'}},e('div',{style:{fontSize:'36px',marginBottom:'12px'}},'📊'),e('div',{style:{fontSize:'14px',opacity:0.5}},'この日の記録がありません'))
+      ),
+
+      // PRESETS
+      view==='presets'&&e('div',{style:pad},
+        e(Card,{style:{padding:'20px',marginBottom:'16px'}},
+          e(SL,{text:'項目を追加'}),
+          e('div',{style:{display:'flex',gap:'8px'}},
+            e('input',{type:'text',value:newPreset,onChange:ev=>setNewPreset(ev.target.value),onKeyDown:ev=>ev.key==='Enter'&&addPreset(),placeholder:'新しい項目名…',style:{flex:1,border:'none',borderBottom:'2px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'4px 0 8px'}}),
+            e('button',{onClick:addPreset,disabled:!newPreset.trim()||presets.includes(newPreset.trim()),style:{padding:'8px 18px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:newPreset.trim()&&!presets.includes(newPreset.trim())?'#d4a843':'#e0d8cc',color:newPreset.trim()&&!presets.includes(newPreset.trim())?'#2c2416':'#aaa'}},'追加')
+          )
+        ),
+        e(SL,{text:`登録済み項目 (${presets.length})`}),
+        presets.length===0
+          ?e(Card,{style:{padding:'28px 20px',textAlign:'center'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'🏷'),e('div',{style:{fontSize:'13px',opacity:0.5}},'まだ項目がありません'))
+          :e('div',{style:{display:'flex',flexDirection:'column',gap:'8px'}},
+              presets.map((p,i)=>e(Card,{key:p,style:{display:'flex',alignItems:'center',gap:'10px',padding:'13px 16px'}},
+                e('div',{style:{width:'8px',height:'8px',borderRadius:'50%',background:BAR_COLORS[i%BAR_COLORS.length],flexShrink:0}}),
+                e('span',{style:{flex:1,fontSize:'15px'}},p),
+                e('div',{style:{display:'flex',gap:'4px'}},
+                  e('button',{onClick:()=>movePreset(i,-1),disabled:i===0,style:{padding:'4px 8px',borderRadius:'8px',border:'none',background:'#f5f0e8',fontSize:'13px',opacity:i===0?0.3:0.7}},'↑'),
+                  e('button',{onClick:()=>movePreset(i,1),disabled:i===presets.length-1,style:{padding:'4px 8px',borderRadius:'8px',border:'none',background:'#f5f0e8',fontSize:'13px',opacity:i===presets.length-1?0.3:0.7}},'↓'),
+                  e('button',{onClick:()=>removePreset(p),style:{padding:'4px 10px',borderRadius:'8px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'13px',fontWeight:'700'}},'×')
+                )
+              ))
+            )
+      )
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(React.createElement(App));
+</script>
+</body>
+</html>

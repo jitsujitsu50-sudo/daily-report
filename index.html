@@ -53,7 +53,10 @@ const SCHEDULE_KEY='dr-schedule-v1';
 const RESULTS_KEY='dr-results-v1';
 const TIMER_KEY='dr-timer-v1';
 const PRESETS_KEY='dr-presets-v1';
+const TASK_CATS_KEY='dr-task-cats-v1';
 const DEFAULT_PRESETS=['ミーティング','資料作成','メール対応','企画・検討','移動','休憩'];
+const DEFAULT_TASK_CATS=['請求書','経費','会議','報告書','その他'];
+const MONTHS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 
 function getTodayStr(){return new Date().toISOString().slice(0,10);}
 function getTimeStr(d){return d.toTimeString().slice(0,5);}
@@ -127,17 +130,34 @@ function TimeRow({item,onUpdate,onDelete,accentColor,presets}){
   );
 }
 
-function TaskItem({task,onToggle,onUpdate,onDelete}){
+function TaskItem({task,onToggle,onUpdate,onDelete,taskCats}){
   const [editing,setEditing]=useState(false);
   const [et,setEt]=useState(task.title);
   const [ep,setEp]=useState(task.priority);
   const [ed,setEd]=useState(task.dueDate||'');
+  const [ec,setEc]=useState(task.category||'');
+  const [em,setEm]=useState(task.month||'');
   const p=PRIORITY[task.priority]||PRIORITY.medium;
   const overdue=isOverdue(task.dueDate)&&!task.done;
   if(editing){
     return e(Card,{style:{padding:'14px 16px',marginBottom:'8px',borderLeft:`4px solid ${PRIORITY[ep].color}`}},
+      // Category chips
+      taskCats.length>0&&e('div',null,
+        e('div',{style:{fontSize:'10px',opacity:0.4,marginBottom:'6px'}},'カテゴリ'),
+        e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'10px'}},
+          e('button',{onClick:()=>setEc(''),style:{padding:'4px 10px',borderRadius:'12px',border:'none',fontSize:'11px',background:ec===''?'#2c2416':'#f5f0e8',color:ec===''?'#f5f0e8':'#6b5a3a',fontWeight:ec===''?'700':'400'}},'なし'),
+          taskCats.map(c=>e('button',{key:c,onClick:()=>setEc(c),style:{padding:'4px 10px',borderRadius:'12px',border:'none',fontSize:'11px',background:ec===c?'#d4a843':'#f5f0e8',color:ec===c?'#2c2416':'#6b5a3a',fontWeight:ec===c?'700':'400'}},c))
+        )
+      ),
+      // Month chips
+      e('div',{style:{fontSize:'10px',opacity:0.4,marginBottom:'6px'}},'対象月'),
+      e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'10px'}},
+        e('button',{onClick:()=>setEm(''),style:{padding:'4px 10px',borderRadius:'12px',border:'none',fontSize:'11px',background:em===''?'#2c2416':'#f5f0e8',color:em===''?'#f5f0e8':'#6b5a3a',fontWeight:em===''?'700':'400'}},'なし'),
+        MONTHS.map(m=>e('button',{key:m,onClick:()=>setEm(m),style:{padding:'4px 8px',borderRadius:'12px',border:'none',fontSize:'11px',background:em===m?'#7b8ec8':'#f5f0e8',color:em===m?'white':'#6b5a3a',fontWeight:em===m?'700':'400'}},m))
+      ),
       e('input',{type:'text',value:et,onChange:ev=>setEt(ev.target.value),placeholder:'タスク名',autoFocus:true,
         style:{width:'100%',border:'none',borderBottom:'1.5px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'2px 0 8px',marginBottom:'10px'}}),
+      e('div',{style:{fontSize:'10px',opacity:0.4,marginBottom:'6px'}},'優先度'),
       e('div',{style:{display:'flex',gap:'6px',marginBottom:'10px'}},
         ['high','medium','low'].map(pr=>e('button',{key:pr,onClick:()=>setEp(pr),style:{flex:1,padding:'6px',borderRadius:'10px',border:'none',fontSize:'12px',fontWeight:'700',background:ep===pr?PRIORITY[pr].color:PRIORITY[pr].bg,color:ep===pr?'white':PRIORITY[pr].color}},PRIORITY[pr].label))
       ),
@@ -147,16 +167,18 @@ function TaskItem({task,onToggle,onUpdate,onDelete}){
       ),
       e('div',{style:{display:'flex',gap:'8px'}},
         e('button',{onClick:()=>onDelete(task.id),style:{flex:1,padding:'9px',borderRadius:'10px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'13px',fontWeight:'700'}},'削除'),
-        e('button',{onClick:()=>{onUpdate(task.id,{title:et,priority:ep,dueDate:ed});setEditing(false);},style:{flex:2,padding:'9px',borderRadius:'10px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'13px',fontWeight:'700'}},'保存')
+        e('button',{onClick:()=>{onUpdate(task.id,{title:et,priority:ep,dueDate:ed,category:ec,month:em});setEditing(false);},style:{flex:2,padding:'9px',borderRadius:'10px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'13px',fontWeight:'700'}},'保存')
       )
     );
   }
   return e('div',{style:{display:'flex',alignItems:'flex-start',gap:'10px',padding:'12px 14px',background:'white',borderRadius:'14px',marginBottom:'8px',boxShadow:'0 1px 6px rgba(44,36,22,.06)',borderLeft:`4px solid ${task.done?'#ddd':p.color}`,opacity:task.done?0.55:1}},
     e('button',{onClick:()=>onToggle(task.id),style:{width:'22px',height:'22px',borderRadius:'6px',border:`2px solid ${task.done?'#bbb':p.color}`,background:task.done?'#bbb':'transparent',flexShrink:0,marginTop:'1px',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px',fontWeight:'700'}},task.done&&'✓'),
     e('div',{style:{flex:1},onClick:()=>!task.done&&setEditing(true)},
-      e('div',{style:{fontSize:'15px',textDecoration:task.done?'line-through':'none',color:task.done?'#aaa':'#2c2416',marginBottom:'3px'}},task.title||'（タスク名なし）'),
-      e('div',{style:{display:'flex',gap:'6px',alignItems:'center'}},
+      e('div',{style:{fontSize:'15px',textDecoration:task.done?'line-through':'none',color:task.done?'#aaa':'#2c2416',marginBottom:'4px'}},task.title||'（タスク名なし）'),
+      e('div',{style:{display:'flex',gap:'5px',alignItems:'center',flexWrap:'wrap'}},
         e('span',{style:{fontSize:'10px',fontWeight:'700',color:p.color,background:p.bg,padding:'2px 8px',borderRadius:'8px'}},p.label),
+        task.category&&e('span',{style:{fontSize:'10px',fontWeight:'700',color:'#8a6a2e',background:'#fdf6e8',padding:'2px 8px',borderRadius:'8px'}},task.category),
+        task.month&&e('span',{style:{fontSize:'10px',fontWeight:'700',color:'white',background:'#7b8ec8',padding:'2px 8px',borderRadius:'8px'}},task.month),
         task.dueDate&&e('span',{style:{fontSize:'11px',color:overdue?'#c87060':'#8a6a2e',fontWeight:overdue?'700':'400'}},overdue?`⚠️ ${formatDateShort(task.dueDate)}`:`📅 ${formatDateShort(task.dueDate)}`)
       )
     ),
@@ -168,10 +190,15 @@ function App(){
   const today=getTodayStr();
   const [tasks,setTasks]=useState([]);
   const [taskFilter,setTaskFilter]=useState('active');
+  const [taskCatFilter,setTaskCatFilter]=useState('');
+  const [taskMonthFilter,setTaskMonthFilter]=useState('');
   const [showNewTask,setShowNewTask]=useState(false);
   const [ntTitle,setNtTitle]=useState('');
   const [ntPriority,setNtPriority]=useState('medium');
   const [ntDue,setNtDue]=useState('');
+  const [ntCategory,setNtCategory]=useState('');
+  const [ntMonth,setNtMonth]=useState('');
+  const [taskCats,setTaskCats]=useState(DEFAULT_TASK_CATS);
   const [schedules,setSchedules]=useState({});
   const [schDate,setSchDate]=useState(today);
   const [results,setResults]=useState({});
@@ -192,6 +219,7 @@ function App(){
     const s=LS.get(SCHEDULE_KEY);if(s)setSchedules(s);
     const r=LS.get(RESULTS_KEY);if(r)setResults(r);
     const p=LS.get(PRESETS_KEY);if(p)setPresets(p);
+    const tc=LS.get(TASK_CATS_KEY);if(tc)setTaskCats(tc);
     const tr=LS.get(TIMER_KEY);
     if(tr){setTimerActivity(tr.activity||'');setTimerStartStr(tr.startStr);setTimerStartISO(tr.startISO);setTimerRunning(true);setElapsed(Math.max(0,Math.floor((Date.now()-new Date(tr.startISO).getTime())/1000)));}
   },[]);
@@ -207,12 +235,19 @@ function App(){
   },[timerRunning,timerStartISO]);
 
   const saveTasks=(list)=>{setTasks(list);LS.set(TASKS_KEY,list);};
-  const addTask=()=>{if(!ntTitle.trim())return;saveTasks([{id:uid(),title:ntTitle.trim(),priority:ntPriority,dueDate:ntDue,done:false},...tasks]);setNtTitle('');setNtDue('');setNtPriority('medium');setShowNewTask(false);};
+  const saveTaskCats=(list)=>{setTaskCats(list);LS.set(TASK_CATS_KEY,list);};
+  const addTask=()=>{if(!ntTitle.trim())return;saveTasks([{id:uid(),title:ntTitle.trim(),priority:ntPriority,dueDate:ntDue,category:ntCategory,month:ntMonth,done:false},...tasks]);setNtTitle('');setNtDue('');setNtPriority('medium');setNtCategory('');setNtMonth('');setShowNewTask(false);};
   const toggleTask=(id)=>saveTasks(tasks.map(t=>t.id===id?{...t,done:!t.done}:t));
   const updateTask=(id,fields)=>saveTasks(tasks.map(t=>t.id===id?{...t,...fields}:t));
   const deleteTask=(id)=>saveTasks(tasks.filter(t=>t.id!==id));
   const sortedTasks=[...tasks].sort((a,b)=>{if(a.done!==b.done)return a.done?1:-1;const po={high:0,medium:1,low:2};return po[a.priority]-po[b.priority];});
-  const filteredTasks=sortedTasks.filter(t=>taskFilter==='all'?true:taskFilter==='done'?t.done:!t.done);
+  const filteredTasks=sortedTasks.filter(t=>{
+    if(taskFilter==='done'&&!t.done)return false;
+    if(taskFilter==='active'&&t.done)return false;
+    if(taskCatFilter&&t.category!==taskCatFilter)return false;
+    if(taskMonthFilter&&t.month!==taskMonthFilter)return false;
+    return true;
+  });
   const activeCnt=tasks.filter(t=>!t.done).length;
   const overdueCnt=tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
 
@@ -283,23 +318,54 @@ function App(){
           e(Card,{style:{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}},e('div',{style:{fontSize:'26px',fontWeight:'700',color:'#d4a843'}},activeCnt),e('div',null,e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4}},'ACTIVE'),e('div',{style:{fontSize:'12px',opacity:0.6}},'未完了'))),
           e(Card,{style:{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}},e('div',{style:{fontSize:'26px',fontWeight:'700',color:'#6b9e78'}},tasks.filter(t=>t.done).length),e('div',null,e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4}},'DONE'),e('div',{style:{fontSize:'12px',opacity:0.6}},'完了')))
         ),
+
+        // New task form
         !showNewTask
           ?e('button',{onClick:()=>setShowNewTask(true),style:{width:'100%',padding:'13px',borderRadius:'14px',border:'2px dashed rgba(212,168,67,0.6)',background:'transparent',color:'#8a6a2e',fontSize:'14px',marginBottom:'14px'}},'＋ タスクを追加')
           :e(Card,{style:{padding:'18px',marginBottom:'14px',borderLeft:`4px solid ${PRIORITY[ntPriority].color}`}},
               e(SL,{text:'NEW TASK'}),
+              // タスクプリセット
+              taskCats.length>0&&e('div',null,
+                e('div',{style:{fontSize:'10px',opacity:0.4,marginBottom:'6px'}},'カテゴリから選ぶ'),
+                e('div',{style:{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'12px'}},
+                  taskCats.map(c=>e('button',{key:c,onClick:()=>{setNtCategory(c);if(!ntTitle)setNtTitle(c);},
+                    style:{padding:'7px 14px',borderRadius:'20px',border:'none',fontSize:'12px',background:ntCategory===c?'#d4a843':'#f5f0e8',color:ntCategory===c?'#2c2416':'#6b5a3a',fontWeight:ntCategory===c?'700':'400'}},c))
+                )
+              ),
               e('input',{type:'text',value:ntTitle,onChange:ev=>setNtTitle(ev.target.value),placeholder:'タスク名を入力…',onKeyDown:ev=>ev.key==='Enter'&&addTask(),autoFocus:true,style:{width:'100%',border:'none',borderBottom:'1.5px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'2px 0 10px',marginBottom:'12px'}}),
-              e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'優先度'),
+              // 対象月
+              e('div',{style:{fontSize:'10px',opacity:0.4,marginBottom:'6px'}},'対象月（任意）'),
+              e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'12px'}},
+                MONTHS.map(m=>e('button',{key:m,onClick:()=>setNtMonth(ntMonth===m?'':m),
+                  style:{padding:'5px 10px',borderRadius:'12px',border:'none',fontSize:'11px',background:ntMonth===m?'#7b8ec8':'#f5f0e8',color:ntMonth===m?'white':'#6b5a3a',fontWeight:ntMonth===m?'700':'400'}},m))
+              ),
+              e('div',{style:{fontSize:'10px',opacity:0.4,marginBottom:'6px'}},'優先度'),
               e('div',{style:{display:'flex',gap:'6px',marginBottom:'12px'}},['high','medium','low'].map(pr=>e('button',{key:pr,onClick:()=>setNtPriority(pr),style:{flex:1,padding:'7px',borderRadius:'10px',border:'none',fontSize:'12px',fontWeight:'700',background:ntPriority===pr?PRIORITY[pr].color:PRIORITY[pr].bg,color:ntPriority===pr?'white':PRIORITY[pr].color}},PRIORITY[pr].label))),
               e('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px'}},e('span',{style:{fontSize:'12px',opacity:0.5}},'期日'),e('input',{type:'date',value:ntDue,onChange:ev=>setNtDue(ev.target.value),style:{flex:1,border:'none',outline:'none',fontSize:'13px',color:'#2c2416',background:'#f8f4ed',padding:'6px 10px',borderRadius:'8px'}})),
               e('div',{style:{display:'flex',gap:'8px'}},
-                e('button',{onClick:()=>{setShowNewTask(false);setNtTitle('');setNtDue('');setNtPriority('medium');},style:{flex:1,padding:'10px',borderRadius:'12px',border:'none',background:'#f0ece4',color:'#8a6a2e',fontSize:'13px',fontWeight:'700'}},'キャンセル'),
+                e('button',{onClick:()=>{setShowNewTask(false);setNtTitle('');setNtDue('');setNtPriority('medium');setNtCategory('');setNtMonth('');},style:{flex:1,padding:'10px',borderRadius:'12px',border:'none',background:'#f0ece4',color:'#8a6a2e',fontSize:'13px',fontWeight:'700'}},'キャンセル'),
                 e('button',{onClick:addTask,disabled:!ntTitle.trim(),style:{flex:2,padding:'10px',borderRadius:'12px',border:'none',background:ntTitle.trim()?'#2c2416':'#ccc',color:'#f5f0e8',fontSize:'13px',fontWeight:'700'}},'追加')
               )
             ),
-        e('div',{style:{display:'flex',gap:'6px',marginBottom:'14px'}},[['active','未完了'],['done','完了'],['all','すべて']].map(([f,l])=>e('button',{key:f,onClick:()=>setTaskFilter(f),style:{flex:1,padding:'8px',borderRadius:'10px',border:'none',fontSize:'12px',fontWeight:'700',background:taskFilter===f?'#2c2416':'white',color:taskFilter===f?'#f5f0e8':'#8a6a2e',boxShadow:'0 1px 4px rgba(44,36,22,0.07)'}},l))),
+
+        // フィルター：完了状態
+        e('div',{style:{display:'flex',gap:'6px',marginBottom:'10px'}},[['active','未完了'],['done','完了'],['all','すべて']].map(([f,l])=>e('button',{key:f,onClick:()=>setTaskFilter(f),style:{flex:1,padding:'8px',borderRadius:'10px',border:'none',fontSize:'12px',fontWeight:'700',background:taskFilter===f?'#2c2416':'white',color:taskFilter===f?'#f5f0e8':'#8a6a2e',boxShadow:'0 1px 4px rgba(44,36,22,0.07)'}},l))),
+
+        // フィルター：カテゴリ
+        taskCats.length>0&&e('div',{style:{display:'flex',gap:'5px',marginBottom:'8px',overflowX:'auto',paddingBottom:'2px'}},
+          e('button',{onClick:()=>setTaskCatFilter(''),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'11px',whiteSpace:'nowrap',background:taskCatFilter===''?'#d4a843':'#f5f0e8',color:taskCatFilter===''?'#2c2416':'#6b5a3a',fontWeight:taskCatFilter===''?'700':'400',flexShrink:0}},'すべて'),
+          taskCats.map(c=>e('button',{key:c,onClick:()=>setTaskCatFilter(taskCatFilter===c?'':c),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'11px',whiteSpace:'nowrap',background:taskCatFilter===c?'#d4a843':'#f5f0e8',color:taskCatFilter===c?'#2c2416':'#6b5a3a',fontWeight:taskCatFilter===c?'700':'400',flexShrink:0}},c))
+        ),
+
+        // フィルター：月
+        e('div',{style:{display:'flex',gap:'5px',marginBottom:'14px',overflowX:'auto',paddingBottom:'2px'}},
+          e('button',{onClick:()=>setTaskMonthFilter(''),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'11px',whiteSpace:'nowrap',background:taskMonthFilter===''?'#7b8ec8':'#f5f0e8',color:taskMonthFilter===''?'white':'#6b5a3a',fontWeight:taskMonthFilter===''?'700':'400',flexShrink:0}},'全月'),
+          MONTHS.map(m=>e('button',{key:m,onClick:()=>setTaskMonthFilter(taskMonthFilter===m?'':m),style:{padding:'5px 10px',borderRadius:'14px',border:'none',fontSize:'11px',whiteSpace:'nowrap',background:taskMonthFilter===m?'#7b8ec8':'#f5f0e8',color:taskMonthFilter===m?'white':'#6b5a3a',fontWeight:taskMonthFilter===m?'700':'400',flexShrink:0}},m))
+        ),
+
         filteredTasks.length===0
-          ?e(Card,{style:{padding:'32px 20px',textAlign:'center'}},e('div',{style:{fontSize:'32px',marginBottom:'10px'}},'✅'),e('div',{style:{fontSize:'14px',opacity:0.5}},taskFilter==='done'?'完了したタスクはありません':'タスクはありません'))
-          :filteredTasks.map(t=>e(TaskItem,{key:t.id,task:t,onToggle:toggleTask,onUpdate:updateTask,onDelete:deleteTask}))
+          ?e(Card,{style:{padding:'32px 20px',textAlign:'center'}},e('div',{style:{fontSize:'32px',marginBottom:'10px'}},'✅'),e('div',{style:{fontSize:'14px',opacity:0.5}},'タスクはありません'))
+          :filteredTasks.map(t=>e(TaskItem,{key:t.id,task:t,onToggle:toggleTask,onUpdate:updateTask,onDelete:deleteTask,taskCats}))
       ),
 
       // SCHEDULE
@@ -381,11 +447,29 @@ function App(){
 
       // PRESETS
       view==='presets'&&e('div',{style:pad},
-        e(Card,{style:{padding:'20px',marginBottom:'16px'}},
-          e(SL,{text:'項目を追加'}),
+
+        // タスクカテゴリ管理
+        e(Card,{style:{padding:'20px',marginBottom:'16px',borderLeft:'4px solid #d4a843'}},
+          e(SL,{text:'タスクカテゴリを追加'}),
+          e('div',{style:{fontSize:'11px',opacity:0.5,marginBottom:'10px'}},'「請求書」「経費」など、タスクの分類に使います'),
+          e('div',{style:{display:'flex',gap:'8px',marginBottom:'12px'}},
+            e('input',{type:'text',id:'newCatInput',placeholder:'新しいカテゴリ名…',style:{flex:1,border:'none',borderBottom:'2px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'4px 0 8px'}}),
+            e('button',{onClick:()=>{const el=document.getElementById('newCatInput');const v=el.value.trim();if(!v||taskCats.includes(v))return;saveTaskCats([...taskCats,v]);el.value='';},style:{padding:'8px 18px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:'#d4a843',color:'#2c2416'}},'追加')
+          ),
+          taskCats.length>0&&e('div',{style:{display:'flex',flexDirection:'column',gap:'7px'}},
+            taskCats.map((c,i)=>e('div',{key:c,style:{display:'flex',alignItems:'center',gap:'8px',padding:'9px 12px',background:'#fdf8f0',borderRadius:'10px'}},
+              e('span',{style:{flex:1,fontSize:'14px'}},c),
+              e('button',{onClick:()=>saveTaskCats(taskCats.filter(x=>x!==c)),style:{padding:'3px 10px',borderRadius:'8px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'12px',fontWeight:'700'}},'×')
+            ))
+          )
+        ),
+
+        // スケジュール・実績の項目
+        e(Card,{style:{padding:'20px',marginBottom:'16px',borderLeft:'4px solid #7b8ec8'}},
+          e(SL,{text:'スケジュール・実績の項目を追加'}),
           e('div',{style:{display:'flex',gap:'8px'}},
             e('input',{type:'text',value:newPreset,onChange:ev=>setNewPreset(ev.target.value),onKeyDown:ev=>ev.key==='Enter'&&addPreset(),placeholder:'新しい項目名…',style:{flex:1,border:'none',borderBottom:'2px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'4px 0 8px'}}),
-            e('button',{onClick:addPreset,disabled:!newPreset.trim()||presets.includes(newPreset.trim()),style:{padding:'8px 18px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:newPreset.trim()&&!presets.includes(newPreset.trim())?'#d4a843':'#e0d8cc',color:newPreset.trim()&&!presets.includes(newPreset.trim())?'#2c2416':'#aaa'}},'追加')
+            e('button',{onClick:addPreset,disabled:!newPreset.trim()||presets.includes(newPreset.trim()),style:{padding:'8px 18px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:newPreset.trim()&&!presets.includes(newPreset.trim())?'#7b8ec8':'#e0d8cc',color:newPreset.trim()&&!presets.includes(newPreset.trim())?'white':'#aaa'}},'追加')
           )
         ),
         e(SL,{text:`登録済み項目 (${presets.length})`}),

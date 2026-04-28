@@ -219,6 +219,7 @@ function App(){
   const [calLoading,setCalLoading]=useState(false);
   const [calError,setCalError]=useState('');
   const [calImportDone,setCalImportDone]=useState(false);
+  const [calViewMode,setCalViewMode]=useState('week');
   const tickRef=useRef(null);
 
   useEffect(()=>{
@@ -352,7 +353,7 @@ function App(){
   const gRange=gMax-gMin||60;
   const gTicks=[];for(let h=Math.floor(gMin/60);h<=Math.ceil(gMax/60);h++)gTicks.push(h);
 
-  const NAV=[['tasks','✅','タスク'],['calendar','📅','カレンダー'],['schedule','🗓','スケジュール'],['results','📝','実績'],['daily','📊','デイリー'],['presets','🏷','項目']];
+  const NAV=[['tasks','✅','タスク'],['calendar','📅','カレンダー'],['schedule','🗓','週'],['month','📆','月'],['results','📝','実績'],['daily','📊','デイリー'],['presets','🏷','項目']];
   const pad={padding:'18px 16px',paddingBottom:'calc(20px + env(safe-area-inset-bottom))'};
 
   return e('div',{style:{height:'100vh',display:'flex',flexDirection:'column',background:'#f5f0e8',overflow:'hidden'}},
@@ -539,20 +540,8 @@ function App(){
                   e('div',{style:{fontSize:'9px',opacity:0.6,marginBottom:'2px'}},DAY_LABELS[i]),
                   e('div',{style:{fontSize:'15px',fontWeight:isSelected||isToday?'700':'400',lineHeight:1,marginBottom:'3px'}},d.getDate()),
                   isToday&&e('div',{style:{width:'4px',height:'4px',borderRadius:'50%',background:isSelected?'#2c2416':'#d4a843',marginBottom:'3px'}}),
-                  // ミニスケジュール表示
                   e('div',{style:{width:'100%',display:'flex',flexDirection:'column',gap:'2px'}},
-                    dayItems.slice(0,3).map((item,j)=>e('div',{key:j,style:{
-                      fontSize:'8px',
-                      background:isSelected?'rgba(44,36,22,0.15)':'rgba(245,240,232,0.15)',
-                      color:isSelected?'#2c2416':'#f5f0e8',
-                      borderRadius:'3px',
-                      padding:'1px 3px',
-                      overflow:'hidden',
-                      whiteSpace:'nowrap',
-                      textOverflow:'ellipsis',
-                      width:'100%',
-                      textAlign:'left',
-                    }},item.startTime?`${item.startTime} ${item.title}`:item.title)),
+                    dayItems.slice(0,3).map((item,j)=>e('div',{key:j,style:{fontSize:'8px',background:isSelected?'rgba(44,36,22,0.15)':'rgba(245,240,232,0.15)',color:isSelected?'#2c2416':'#f5f0e8',borderRadius:'3px',padding:'1px 3px',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',width:'100%',textAlign:'left'}},item.startTime?`${item.startTime} ${item.title}`:item.title)),
                     dayItems.length>3&&e('div',{style:{fontSize:'8px',opacity:0.5,textAlign:'center'}},`+${dayItems.length-3}`)
                   )
                 );
@@ -573,7 +562,95 @@ function App(){
         )
       ),
 
+        // スケジュール一覧
+        e('div',{style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'16px',paddingBottom:'calc(20px + env(safe-area-inset-bottom))'}},
+          e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}},
+            e('div',{style:{fontSize:'12px',opacity:0.6}},formatDate(schDate)),
+            schDate===getTodayStr()&&e('span',{style:{fontSize:'10px',color:'#d4a843',fontWeight:'700'}},'● 今日')
+          ),
+          sortedSch.length===0&&e(Card,{style:{padding:'28px 20px',textAlign:'center',marginBottom:'12px'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'🗓'),e('div',{style:{fontSize:'13px',opacity:0.5}},'スケジュールがありません')),
+          sortedSch.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateSch,onDelete:deleteSch,accentColor:SCH_COLOR,presets})),
+          e('button',{onClick:addSch,style:{width:'100%',padding:'13px',borderRadius:'14px',border:`2px dashed ${SCH_COLOR}80`,background:'transparent',color:SCH_COLOR,fontSize:'14px',marginTop:'4px'}},'＋ 予定を追加')
+        )
+      ),
+
       // RESULTS
+      // MONTH
+      view==='month'&&e('div',{style:{display:'flex',flexDirection:'column',height:'100%'}},
+        // 月カレンダーヘッダー
+        e('div',{style:{background:'#2c2416',padding:'10px 16px 14px',flexShrink:0}},
+          e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
+            e('button',{onClick:()=>{const d=new Date(schDate);d.setMonth(d.getMonth()-1);setSchDate(d.toISOString().slice(0,10));},
+              style:{background:'rgba(245,240,232,0.15)',border:'none',color:'#f5f0e8',padding:'4px 12px',borderRadius:'10px',fontSize:'16px',cursor:'pointer'}},'‹'),
+            e('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}},
+              e('div',{style:{fontSize:'15px',color:'#f5f0e8',fontWeight:'700'}},
+                `${new Date(schDate).getFullYear()}年${new Date(schDate).getMonth()+1}月`
+              ),
+              schDate!==getTodayStr()&&e('button',{onClick:()=>setSchDate(getTodayStr()),
+                style:{background:'#d4a843',border:'none',color:'#2c2416',padding:'2px 12px',borderRadius:'10px',fontSize:'11px',fontWeight:'700',cursor:'pointer'}},'今日')
+            ),
+            e('button',{onClick:()=>{const d=new Date(schDate);d.setMonth(d.getMonth()+1);setSchDate(d.toISOString().slice(0,10));},
+              style:{background:'rgba(245,240,232,0.15)',border:'none',color:'#f5f0e8',padding:'4px 12px',borderRadius:'10px',fontSize:'16px',cursor:'pointer'}},'›')
+          ),
+          // 曜日ヘッダー
+          e('div',{style:{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'2px',marginBottom:'6px'}},
+            ['月','火','水','木','金','土','日'].map((l,i)=>e('div',{key:l,style:{textAlign:'center',fontSize:'10px',opacity:0.5,color:i===5?'#90b8f8':i===6?'#f08080':'#f5f0e8'}},l))
+          ),
+          // 日付グリッド
+          e('div',{style:{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'3px'}},
+            (()=>{
+              const base=new Date(schDate);
+              const year=base.getFullYear(),month=base.getMonth();
+              const firstDay=new Date(year,month,1);
+              const lastDay=new Date(year,month+1,0);
+              const offset=firstDay.getDay()===0?6:firstDay.getDay()-1;
+              const todayStr=getTodayStr();
+              const cells=[];
+              for(let i=0;i<offset;i++)cells.push(e('div',{key:`empty${i}`}));
+              for(let day=1;day<=lastDay.getDate();day++){
+                const d=new Date(year,month,day);
+                const ds=d.toISOString().slice(0,10);
+                const isSelected=ds===schDate;
+                const isToday=ds===todayStr;
+                const schCnt=(schedules[ds]||[]).filter(s=>s.title||s.startTime).length;
+                const dow=d.getDay();
+                const isSat=dow===6,isSun=dow===0;
+                cells.push(e('button',{key:ds,onClick:()=>{setSchDate(ds);setView('schedule');},style:{
+                  display:'flex',flexDirection:'column',alignItems:'center',
+                  padding:'6px 2px',borderRadius:'10px',border:'none',cursor:'pointer',
+                  background:isSelected?'#d4a843':isToday?'rgba(212,168,67,0.2)':'rgba(245,240,232,0.08)',
+                  color:isSelected?'#2c2416':isSun?'#f08080':isSat?'#90b8f8':'#f5f0e8',
+                  minHeight:'48px',
+                }},
+                  e('div',{style:{fontSize:'14px',fontWeight:isSelected||isToday?'700':'400',lineHeight:1,marginBottom:'4px'}},day),
+                  schCnt>0
+                    ?e('div',{style:{fontSize:'10px',fontWeight:'700',background:isSelected?'rgba(44,36,22,0.2)':'rgba(212,168,67,0.4)',color:isSelected?'#2c2416':'#f5f0e8',padding:'1px 5px',borderRadius:'8px'}},schCnt+'件')
+                    :e('div',{style:{height:'16px'}})
+                ));
+              }
+              return cells;
+            })()
+          )
+        ),
+        // 選択日のスケジュール一覧
+        e('div',{style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'16px',paddingBottom:'calc(20px + env(safe-area-inset-bottom))'}},
+          e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}},
+            e('div',{style:{fontSize:'13px',fontWeight:'700',color:'#2c2416'}},formatDate(schDate)),
+            schDate===getTodayStr()&&e('span',{style:{fontSize:'10px',color:'#d4a843',fontWeight:'700'}},'● 今日')
+          ),
+          (()=>{
+            const items=(schedules[schDate]||[]).filter(s=>s.title||s.startTime).sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
+            if(items.length===0)return e(Card,{style:{padding:'24px 20px',textAlign:'center'}},e('div',{style:{fontSize:'24px',marginBottom:'8px'}},'🗓'),e('div',{style:{fontSize:'13px',opacity:0.5}},'この日のスケジュールはありません'));
+            return e(Fragment,null,items.map(item=>e('div',{key:item.id,style:{display:'flex',gap:'10px',alignItems:'center',padding:'10px 14px',background:'white',borderRadius:'12px',marginBottom:'7px',boxShadow:'0 1px 6px rgba(44,36,22,.06)',borderLeft:`4px solid ${SCH_COLOR}`}},
+              e('div',{style:{flex:1}},
+                e('div',{style:{fontSize:'14px',color:'#2c2416',marginBottom:'2px'}},item.title||'（未入力）'),
+                e('div',{style:{fontSize:'11px',color:'#8a6a2e'}},item.startTime&&item.endTime?`${item.startTime} → ${item.endTime}`:item.startTime||'時間未設定',calcDur(item.startTime,item.endTime)&&e('span',{style:{marginLeft:'6px',opacity:0.7}},calcDur(item.startTime,item.endTime)))
+              )
+            )));
+          })()
+        )
+      ),
+
       view==='results'&&e('div',{style:pad},
         timerRunning
           ?e(Card,{style:{background:'#2c2416',padding:'24px 20px',marginBottom:'16px',textAlign:'center'}},
@@ -682,7 +759,6 @@ function App(){
                 )
               ))
             )
-      )
     )
   );
 }

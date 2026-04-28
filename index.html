@@ -499,14 +499,18 @@ function App(){
           e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
             e('button',{onClick:()=>{const d=new Date(schDate);d.setDate(d.getDate()-7);setSchDate(d.toISOString().slice(0,10));},
               style:{background:'rgba(245,240,232,0.15)',border:'none',color:'#f5f0e8',padding:'4px 12px',borderRadius:'10px',fontSize:'16px',cursor:'pointer'}},'‹'),
-            e('div',{style:{fontSize:'13px',color:'#f5f0e8',fontWeight:'700'}},
-              (()=>{
-                const base=new Date(schDate);
-                const dow=base.getDay();
-                const mon=new Date(base);mon.setDate(base.getDate()-(dow===0?6:dow-1));
-                const sun=new Date(mon);sun.setDate(mon.getDate()+6);
-                return `${mon.getMonth()+1}月${mon.getDate()}日 〜 ${sun.getMonth()+1}月${sun.getDate()}日`;
-              })()
+            e('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}},
+              e('div',{style:{fontSize:'13px',color:'#f5f0e8',fontWeight:'700'}},
+                (()=>{
+                  const base=new Date(schDate);
+                  const dow=base.getDay();
+                  const mon=new Date(base);mon.setDate(base.getDate()-(dow===0?6:dow-1));
+                  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+                  return `${mon.getMonth()+1}月${mon.getDate()}日 〜 ${sun.getMonth()+1}月${sun.getDate()}日`;
+                })()
+              ),
+              schDate!==getTodayStr()&&e('button',{onClick:()=>setSchDate(getTodayStr()),
+                style:{background:'#d4a843',border:'none',color:'#2c2416',padding:'2px 12px',borderRadius:'10px',fontSize:'11px',fontWeight:'700',cursor:'pointer'}},'今日')
             ),
             e('button',{onClick:()=>{const d=new Date(schDate);d.setDate(d.getDate()+7);setSchDate(d.toISOString().slice(0,10));},
               style:{background:'rgba(245,240,232,0.15)',border:'none',color:'#f5f0e8',padding:'4px 12px',borderRadius:'10px',fontSize:'16px',cursor:'pointer'}},'›')
@@ -524,18 +528,33 @@ function App(){
                 const ds=d.toISOString().slice(0,10);
                 const isSelected=ds===schDate;
                 const isToday=ds===todayStr;
-                const hasSch=(schedules[ds]||[]).length>0;
+                const dayItems=(schedules[ds]||[]).filter(s=>s.title||s.startTime);
                 const isSat=i===5,isSun=i===6;
                 return e('button',{key:ds,onClick:()=>setSchDate(ds),style:{
-                  display:'flex',flexDirection:'column',alignItems:'center',padding:'6px 2px',borderRadius:'10px',border:'none',cursor:'pointer',
+                  display:'flex',flexDirection:'column',alignItems:'center',padding:'6px 3px',borderRadius:'10px',border:'none',cursor:'pointer',
                   background:isSelected?'#d4a843':'rgba(245,240,232,0.08)',
                   color:isSelected?'#2c2416':isSun?'#f08080':isSat?'#90b8f8':'#f5f0e8',
+                  minHeight:'72px',
                 }},
                   e('div',{style:{fontSize:'9px',opacity:0.6,marginBottom:'2px'}},DAY_LABELS[i]),
-                  e('div',{style:{fontSize:'15px',fontWeight:isSelected||isToday?'700':'400',lineHeight:1}},d.getDate()),
-                  e('div',{style:{width:'4px',height:'4px',borderRadius:'50%',marginTop:'3px',
-                    background:isToday&&!isSelected?'#d4a843':hasSch&&!isSelected?'rgba(245,240,232,0.5)':'transparent'
-                  }})
+                  e('div',{style:{fontSize:'15px',fontWeight:isSelected||isToday?'700':'400',lineHeight:1,marginBottom:'3px'}},d.getDate()),
+                  isToday&&e('div',{style:{width:'4px',height:'4px',borderRadius:'50%',background:isSelected?'#2c2416':'#d4a843',marginBottom:'3px'}}),
+                  // ミニスケジュール表示
+                  e('div',{style:{width:'100%',display:'flex',flexDirection:'column',gap:'2px'}},
+                    dayItems.slice(0,3).map((item,j)=>e('div',{key:j,style:{
+                      fontSize:'8px',
+                      background:isSelected?'rgba(44,36,22,0.15)':'rgba(245,240,232,0.15)',
+                      color:isSelected?'#2c2416':'#f5f0e8',
+                      borderRadius:'3px',
+                      padding:'1px 3px',
+                      overflow:'hidden',
+                      whiteSpace:'nowrap',
+                      textOverflow:'ellipsis',
+                      width:'100%',
+                      textAlign:'left',
+                    }},item.startTime?`${item.startTime} ${item.title}`:item.title)),
+                    dayItems.length>3&&e('div',{style:{fontSize:'8px',opacity:0.5,textAlign:'center'}},`+${dayItems.length-3}`)
+                  )
                 );
               });
             })()

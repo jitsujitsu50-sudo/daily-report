@@ -229,7 +229,40 @@ function App(){
     const tc=LS.get(TASK_CATS_KEY);if(tc)setTaskCats(tc);
     const tr=LS.get(TIMER_KEY);
     if(tr){setTimerActivity(tr.activity||'');setTimerStartStr(tr.startStr);setTimerStartISO(tr.startISO);setTimerRunning(true);setElapsed(Math.max(0,Math.floor((Date.now()-new Date(tr.startISO).getTime())/1000)));}
+    // アプリ起動時に今日のカレンダーを自動取得
+    autoFetchCalendar(getTodayStr());
   },[]);
+
+  // カレンダー自動取得（スケジュールに静かに反映）
+  const autoFetchCalendar=async(date)=>{
+    try{
+      const res=await fetch(`${GAS_URL}?date=${date}`);
+      const data=await res.json();
+      if(!Array.isArray(data))return;
+      // 時間付きイベントのみスケジュールに自動追加（重複チェックあり）
+      const timed=data.filter(ev=>!ev.allDay&&ev.startTime&&ev.endTime);
+      if(!timed.length)return;
+      setSchedules(prev=>{
+        const existing=prev[date]||[];
+        const existingTitles=existing.map(e=>e.title+e.startTime);
+        const newItems=timed
+          .filter(ev=>!existingTitles.includes(ev.summary+ev.startTime))
+          .map(ev=>({id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''}));
+        if(!newItems.length)return prev;
+        const merged=[...existing,...newItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
+        const updated={...prev,[date]:merged};
+        LS.set(SCHEDULE_KEY,updated);
+        return updated;
+      });
+    }catch(err){}
+  };
+
+  // スケジュールタブを開いたときも自動取得
+  useEffect(()=>{
+    if(view==='schedule'){
+      autoFetchCalendar(schDate);
+    }
+  },[view,schDate]);
 
   // タイマー：開始時刻との差分で正確に計測
   useEffect(()=>{
@@ -459,12 +492,66 @@ function App(){
       ),
 
       // SCHEDULE
-      view==='schedule'&&e('div',{style:pad},
-        e(DatePicker,{value:schDate,onChange:setSchDate,label:'DATE'}),
-        e(SL,{text:'🗓 スケジュール'}),
-        sortedSch.length===0&&e(Card,{style:{padding:'28px 20px',textAlign:'center',marginBottom:'12px'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'🗓'),e('div',{style:{fontSize:'13px',opacity:0.5}},'スケジュールがありません')),
-        sortedSch.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateSch,onDelete:deleteSch,accentColor:SCH_COLOR,presets})),
-        e('button',{onClick:addSch,style:{width:'100%',padding:'13px',borderRadius:'14px',border:`2px dashed ${SCH_COLOR}80`,background:'transparent',color:SCH_COLOR,fontSize:'14px',marginTop:'4px'}},'＋ 予定を追加')
+      view==='schedule'&&e('div',{style:{display:'flex',flexDirection:'column',height:'100%'}},
+
+        // 週カレンダー（上部固定）
+        e('div',{style:{background:'#2c2416',padding:'10px 16px 14px',flexShrink:0}},
+          e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
+            e('button',{onClick:()=>{const d=new Date(schDate);d.setDate(d.getDate()-7);setSchDate(d.toISOString().slice(0,10));},
+              style:{background:'rgba(245,240,232,0.15)',border:'none',color:'#f5f0e8',padding:'4px 12px',borderRadius:'10px',fontSize:'16px',cursor:'pointer'}},'‹'),
+            e('div',{style:{fontSize:'13px',color:'#f5f0e8',fontWeight:'700'}},
+              (()=>{
+                const base=new Date(schDate);
+                const dow=base.getDay();
+                const mon=new Date(base);mon.setDate(base.getDate()-(dow===0?6:dow-1));
+                const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+                return `${mon.getMonth()+1}月${mon.getDate()}日 〜 ${sun.getMonth()+1}月${sun.getDate()}日`;
+              })()
+            ),
+            e('button',{onClick:()=>{const d=new Date(schDate);d.setDate(d.getDate()+7);setSchDate(d.toISOString().slice(0,10));},
+              style:{background:'rgba(245,240,232,0.15)',border:'none',color:'#f5f0e8',padding:'4px 12px',borderRadius:'10px',fontSize:'16px',cursor:'pointer'}},'›')
+          ),
+          e('div',{style:{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'3px'}},
+            (()=>{
+              const base=new Date(schDate);
+              const dow=base.getDay();
+              const mon=new Date(base);mon.setDate(base.getDate()-(dow===0?6:dow-1));
+              const days=[];
+              for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push(d);}
+              const DAY_LABELS=['月','火','水','木','金','土','日'];
+              const todayStr=getTodayStr();
+              return days.map((d,i)=>{
+                const ds=d.toISOString().slice(0,10);
+                const isSelected=ds===schDate;
+                const isToday=ds===todayStr;
+                const hasSch=(schedules[ds]||[]).length>0;
+                const isSat=i===5,isSun=i===6;
+                return e('button',{key:ds,onClick:()=>setSchDate(ds),style:{
+                  display:'flex',flexDirection:'column',alignItems:'center',padding:'6px 2px',borderRadius:'10px',border:'none',cursor:'pointer',
+                  background:isSelected?'#d4a843':'rgba(245,240,232,0.08)',
+                  color:isSelected?'#2c2416':isSun?'#f08080':isSat?'#90b8f8':'#f5f0e8',
+                }},
+                  e('div',{style:{fontSize:'9px',opacity:0.6,marginBottom:'2px'}},DAY_LABELS[i]),
+                  e('div',{style:{fontSize:'15px',fontWeight:isSelected||isToday?'700':'400',lineHeight:1}},d.getDate()),
+                  e('div',{style:{width:'4px',height:'4px',borderRadius:'50%',marginTop:'3px',
+                    background:isToday&&!isSelected?'#d4a843':hasSch&&!isSelected?'rgba(245,240,232,0.5)':'transparent'
+                  }})
+                );
+              });
+            })()
+          )
+        ),
+
+        // スケジュール一覧
+        e('div',{style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'16px',paddingBottom:'calc(20px + env(safe-area-inset-bottom))'}},
+          e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}},
+            e('div',{style:{fontSize:'12px',opacity:0.6}},formatDate(schDate)),
+            schDate===getTodayStr()&&e('span',{style:{fontSize:'10px',color:'#d4a843',fontWeight:'700'}},'● 今日')
+          ),
+          sortedSch.length===0&&e(Card,{style:{padding:'28px 20px',textAlign:'center',marginBottom:'12px'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'🗓'),e('div',{style:{fontSize:'13px',opacity:0.5}},'スケジュールがありません')),
+          sortedSch.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateSch,onDelete:deleteSch,accentColor:SCH_COLOR,presets})),
+          e('button',{onClick:addSch,style:{width:'100%',padding:'13px',borderRadius:'14px',border:`2px dashed ${SCH_COLOR}80`,background:'transparent',color:SCH_COLOR,fontSize:'14px',marginTop:'4px'}},'＋ 予定を追加')
+        )
       ),
 
       // RESULTS

@@ -353,7 +353,7 @@ function App(){
   const gRange=gMax-gMin||60;
   const gTicks=[];for(let h=Math.floor(gMin/60);h<=Math.ceil(gMax/60);h++)gTicks.push(h);
 
-  const NAV=[['tasks','✅','タスク'],['calendar','📅','カレンダー'],['schedule','🗓','週'],['month','📆','月'],['results','📝','実績'],['daily','📊','デイリー'],['presets','🏷','項目']];
+  const NAV=[['tasks','✅','タスク'],['schedule','🗓','週'],['month','📆','月'],['results','📝','実績'],['daily','📊','デイリー'],['presets','🏷','項目']];
   const pad={padding:'18px 16px',paddingBottom:'calc(20px + env(safe-area-inset-bottom))'};
 
   return e('div',{style:{height:'100vh',display:'flex',flexDirection:'column',background:'#f5f0e8',overflow:'hidden'}},
@@ -434,62 +434,6 @@ function App(){
         filteredTasks.length===0
           ?e(Card,{style:{padding:'32px 20px',textAlign:'center'}},e('div',{style:{fontSize:'32px',marginBottom:'10px'}},'✅'),e('div',{style:{fontSize:'14px',opacity:0.5}},'タスクはありません'))
           :filteredTasks.map(t=>e(TaskItem,{key:t.id,task:t,onToggle:toggleTask,onUpdate:updateTask,onDelete:deleteTask,taskCats}))
-      ),
-
-      // CALENDAR
-      view==='calendar'&&e('div',{style:pad},
-        e(Card,{style:{padding:'16px 18px',marginBottom:'16px'}},
-          e('div',{style:{fontSize:'10px',letterSpacing:'3px',opacity:0.4,marginBottom:'10px'}},'日付を選んで取得'),
-          e('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'10px'}},
-            e('input',{type:'date',value:calDate,onChange:ev=>{setCalDate(ev.target.value);setCalEvents([]);setCalImportDone(false);},
-              style:{flex:1,border:'none',outline:'none',fontSize:'15px',color:'#2c2416',background:'#f8f4ed',padding:'8px 12px',borderRadius:'10px'}}),
-            e('button',{onClick:()=>fetchCalendar(calDate),disabled:calLoading,
-              style:{padding:'9px 16px',borderRadius:'10px',border:'none',background:'#d4a843',color:'#2c2416',fontSize:'13px',fontWeight:'700',whiteSpace:'nowrap'}},
-              calLoading?'取得中…':'📅 取得')
-          ),
-          e('div',{style:{fontSize:'12px',opacity:0.5}},formatDate(calDate))
-        ),
-
-        calError&&e('div',{style:{background:'#fdecea',borderRadius:'12px',padding:'12px 16px',marginBottom:'12px',color:'#c87060',fontSize:'13px'}},calError),
-
-        calImportDone&&e('div',{style:{background:'#edfdf4',borderRadius:'12px',padding:'12px 16px',marginBottom:'12px',color:'#3a7a5a',fontSize:'13px',fontWeight:'600'}},'✓ スケジュールに取り込みました！'),
-
-        calEvents.length>0&&e(Fragment,null,
-          e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}},
-            e('div',{style:{fontSize:'10px',letterSpacing:'3px',opacity:0.4}},`${calEvents.length}件取得`),
-            e('button',{onClick:()=>{importCalToSchedule(calEvents);},
-              style:{padding:'7px 14px',borderRadius:'12px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'12px',fontWeight:'700'}},'すべてスケジュールに追加')
-          ),
-          calEvents.filter(ev=>ev.allDay).length>0&&e('div',{style:{marginBottom:'12px'}},
-            e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4,marginBottom:'8px'}},'終日イベント'),
-            calEvents.filter(ev=>ev.allDay).map((ev,i)=>e(Card,{key:i,style:{padding:'12px 16px',marginBottom:'8px',borderLeft:'4px solid #2c2416',display:'flex',alignItems:'center',gap:'10px'}},
-              e('span',null,'📌'),
-              e('div',{style:{flex:1}},e('div',{style:{fontSize:'14px',fontWeight:'600'}},ev.summary),e('div',{style:{fontSize:'11px',opacity:0.5,marginTop:'2px'}},'終日'))
-            ))
-          ),
-          calEvents.filter(ev=>!ev.allDay).length>0&&e('div',null,
-            e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4,marginBottom:'8px'}},'時間付きイベント'),
-            calEvents.filter(ev=>!ev.allDay).map((ev,i)=>e(Card,{key:i,style:{padding:'12px 16px',marginBottom:'8px',borderLeft:`4px solid ${SCH_COLOR}`,display:'flex',alignItems:'center',gap:'10px'}},
-              e('div',{style:{flex:1}},
-                e('div',{style:{fontSize:'14px',fontWeight:'600',marginBottom:'2px'}},ev.summary),
-                e('div',{style:{fontSize:'12px',color:'#8a6a2e'}},`${ev.startTime} → ${ev.endTime}`,calcDur(ev.startTime,ev.endTime)&&e('span',{style:{marginLeft:'6px',opacity:0.6}},calcDur(ev.startTime,ev.endTime)))
-              ),
-              e('button',{onClick:()=>{
-                const item={id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''};
-                const existing=schedules[calDate]||[];
-                const merged=[...existing,item].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
-                saveSch({...schedules,[calDate]:merged});
-                setSchDate(calDate);
-                setCalImportDone(true);
-              },style:{padding:'6px 12px',borderRadius:'10px',border:'none',background:'#eef2ff',color:SCH_COLOR,fontSize:'12px',fontWeight:'700',whiteSpace:'nowrap'}},'追加')
-            ))
-          )
-        ),
-
-        calEvents.length===0&&!calLoading&&!calError&&e(Card,{style:{padding:'36px 20px',textAlign:'center'}},
-          e('div',{style:{fontSize:'36px',marginBottom:'10px'}},'📅'),
-          e('div',{style:{fontSize:'14px',opacity:0.5,lineHeight:'1.8'}},'日付を選んで',e('br'),'「取得」ボタンを押してください')
-        )
       ),
 
       // SCHEDULE
@@ -723,7 +667,7 @@ function App(){
 
         // タスクカテゴリ管理
         e(Card,{style:{padding:'20px',marginBottom:'16px',borderLeft:'4px solid #d4a843'}},
-          e(SL,{text:'タスクカテゴリを追加'}),
+          e(SL,{text:'タスクカテゴリ'}),
           e('div',{style:{fontSize:'11px',opacity:0.5,marginBottom:'10px'}},'「請求書」「経費」など、タスクの分類に使います'),
           e('div',{style:{display:'flex',gap:'8px',marginBottom:'12px'}},
             e('input',{type:'text',id:'newCatInput',placeholder:'新しいカテゴリ名…',style:{flex:1,border:'none',borderBottom:'2px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'4px 0 8px'}}),
@@ -739,26 +683,24 @@ function App(){
 
         // スケジュール・実績の項目
         e(Card,{style:{padding:'20px',marginBottom:'16px',borderLeft:'4px solid #7b8ec8'}},
-          e(SL,{text:'スケジュール・実績の項目を追加'}),
-          e('div',{style:{display:'flex',gap:'8px'}},
+          e(SL,{text:'スケジュール・実績の項目'}),
+          e('div',{style:{fontSize:'11px',opacity:0.5,marginBottom:'10px'}},'タイマーやスケジュール入力時のプリセットです'),
+          e('div',{style:{display:'flex',gap:'8px',marginBottom:'12px'}},
             e('input',{type:'text',value:newPreset,onChange:ev=>setNewPreset(ev.target.value),onKeyDown:ev=>ev.key==='Enter'&&addPreset(),placeholder:'新しい項目名…',style:{flex:1,border:'none',borderBottom:'2px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'4px 0 8px'}}),
             e('button',{onClick:addPreset,disabled:!newPreset.trim()||presets.includes(newPreset.trim()),style:{padding:'8px 18px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:newPreset.trim()&&!presets.includes(newPreset.trim())?'#7b8ec8':'#e0d8cc',color:newPreset.trim()&&!presets.includes(newPreset.trim())?'white':'#aaa'}},'追加')
+          ),
+          presets.length>0&&e('div',{style:{display:'flex',flexDirection:'column',gap:'7px'}},
+            presets.map((p,i)=>e('div',{key:p,style:{display:'flex',alignItems:'center',gap:'8px',padding:'9px 12px',background:'#f0f2ff',borderRadius:'10px'}},
+              e('div',{style:{width:'8px',height:'8px',borderRadius:'50%',background:BAR_COLORS[i%BAR_COLORS.length],flexShrink:0}}),
+              e('span',{style:{flex:1,fontSize:'14px'}},p),
+              e('div',{style:{display:'flex',gap:'4px'}},
+                e('button',{onClick:()=>movePreset(i,-1),disabled:i===0,style:{padding:'4px 8px',borderRadius:'8px',border:'none',background:'#f5f0e8',fontSize:'13px',opacity:i===0?0.3:0.7}},'↑'),
+                e('button',{onClick:()=>movePreset(i,1),disabled:i===presets.length-1,style:{padding:'4px 8px',borderRadius:'8px',border:'none',background:'#f5f0e8',fontSize:'13px',opacity:i===presets.length-1?0.3:0.7}},'↓'),
+                e('button',{onClick:()=>removePreset(p),style:{padding:'4px 10px',borderRadius:'8px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'12px',fontWeight:'700'}},'×')
+              )
+            ))
           )
-        ),
-        e(SL,{text:`登録済み項目 (${presets.length})`}),
-        presets.length===0
-          ?e(Card,{style:{padding:'28px 20px',textAlign:'center'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'🏷'),e('div',{style:{fontSize:'13px',opacity:0.5}},'まだ項目がありません'))
-          :e('div',{style:{display:'flex',flexDirection:'column',gap:'8px'}},
-              presets.map((p,i)=>e(Card,{key:p,style:{display:'flex',alignItems:'center',gap:'10px',padding:'13px 16px'}},
-                e('div',{style:{width:'8px',height:'8px',borderRadius:'50%',background:BAR_COLORS[i%BAR_COLORS.length],flexShrink:0}}),
-                e('span',{style:{flex:1,fontSize:'15px'}},p),
-                e('div',{style:{display:'flex',gap:'4px'}},
-                  e('button',{onClick:()=>movePreset(i,-1),disabled:i===0,style:{padding:'4px 8px',borderRadius:'8px',border:'none',background:'#f5f0e8',fontSize:'13px',opacity:i===0?0.3:0.7}},'↑'),
-                  e('button',{onClick:()=>movePreset(i,1),disabled:i===presets.length-1,style:{padding:'4px 8px',borderRadius:'8px',border:'none',background:'#f5f0e8',fontSize:'13px',opacity:i===presets.length-1?0.3:0.7}},'↓'),
-                  e('button',{onClick:()=>removePreset(p),style:{padding:'4px 10px',borderRadius:'8px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'13px',fontWeight:'700'}},'×')
-                )
-              ))
-            )
+        )
     )
   );
 }

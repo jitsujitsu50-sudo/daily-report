@@ -59,7 +59,11 @@ const DEFAULT_TASK_CATS=['請求書','経費','会議','報告書','その他'];
 const MONTHS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 const GAS_URL='https://script.google.com/macros/s/AKfycbzh85JBovXBgtFQiTJkph5wtjFTQqlOhVlHlzAGjnwy5z-_AaqKljEb9-aaAzI3b6HY/exec';
 
-function getTodayStr(){return new Date().toISOString().slice(0,10);}
+function getTodayStr(){
+  const now=new Date();
+  const jst=new Date(now.getTime()+9*60*60*1000);
+  return jst.toISOString().slice(0,10);
+}
 function getTimeStr(d){return d.toTimeString().slice(0,5);}
 function formatDate(d){return new Date(d).toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});}
 function formatDateShort(d){return new Date(d).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric',weekday:'short'});}

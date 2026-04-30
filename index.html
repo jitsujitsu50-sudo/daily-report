@@ -382,10 +382,10 @@ function App(){
       )
     ),
 
-    e('div',{style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}},
+    e('div',{style:{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},
 
       // TASKS
-      view==='tasks'&&e('div',{style:pad},
+      view==='tasks'&&e('div',{style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',...pad}},
         e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'16px'}},
           e(Card,{style:{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}},e('div',{style:{fontSize:'26px',fontWeight:'700',color:'#d4a843'}},activeCnt),e('div',null,e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4}},'ACTIVE'),e('div',{style:{fontSize:'12px',opacity:0.6}},'未完了'))),
           e(Card,{style:{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}},e('div',{style:{fontSize:'26px',fontWeight:'700',color:'#6b9e78'}},tasks.filter(t=>t.done).length),e('div',null,e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4}},'DONE'),e('div',{style:{fontSize:'12px',opacity:0.6}},'完了')))
@@ -445,6 +445,13 @@ function App(){
 
         // 週カレンダー（上部固定）
         e('div',{style:{background:'#2c2416',padding:'10px 16px 14px',flexShrink:0}},
+          // 取得ボタン
+          e('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:'8px'}},
+            e('button',{
+              onClick:()=>autoFetchCalendar(schDate),
+              style:{background:'rgba(212,168,67,0.25)',border:'1px solid rgba(212,168,67,0.5)',color:'#d4a843',padding:'4px 12px',borderRadius:'10px',fontSize:'11px',fontWeight:'700',cursor:'pointer'}
+            },'🔄 カレンダー取得')
+          ),
           e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
             e('button',{onClick:()=>{const d=new Date(schDate);d.setDate(d.getDate()-7);setSchDate(d.toISOString().slice(0,10));},
               style:{background:'rgba(245,240,232,0.15)',border:'none',color:'#f5f0e8',padding:'4px 12px',borderRadius:'10px',fontSize:'16px',cursor:'pointer'}},'‹'),
@@ -604,7 +611,7 @@ function App(){
         )
       ),
 
-      view==='results'&&e('div',{style:pad},
+      view==='results'&&e('div',{style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',...pad}},
         timerRunning
           ?e(Card,{style:{background:'#2c2416',padding:'24px 20px',marginBottom:'16px',textAlign:'center'}},
               e('div',{style:{fontSize:'11px',letterSpacing:'4px',color:'#d4a843',marginBottom:'8px'}},'RUNNING'),
@@ -631,7 +638,7 @@ function App(){
       ),
 
       // DAILY
-      view==='daily'&&e('div',{style:pad},
+      view==='daily'&&e('div',{style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',...pad}},
         e(DatePicker,{value:dayDate,onChange:setDayDate,max:today,label:'DATE'}),
         e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'16px'}},
           e(Card,{style:{padding:'14px',textAlign:'center'}},e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4,marginBottom:'4px'}},'スケジュール'),e('div',{style:{fontSize:'20px',fontWeight:'700',color:SCH_COLOR}},daySchItems.length,e('span',{style:{fontSize:'12px',fontWeight:'400',opacity:0.6}},' 件'))),
@@ -672,7 +679,7 @@ function App(){
       ),
 
       // PRESETS
-      view==='presets'&&e('div',{style:pad},
+      view==='presets'&&e('div',{style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',...pad}},
 
         // タスクカテゴリ管理
         e(Card,{style:{padding:'20px',marginBottom:'16px',borderLeft:'4px solid #d4a843'}},

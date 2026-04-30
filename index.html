@@ -473,8 +473,12 @@ function App(){
               for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push(d);}
               const DAY_LABELS=['月','火','水','木','金','土','日'];
               const todayStr=getTodayStr();
+              const toJSTStr=(d)=>{
+                const jst=new Date(d.getTime()+9*60*60*1000);
+                return jst.toISOString().slice(0,10);
+              };
               return days.map((d,i)=>{
-                const ds=d.toISOString().slice(0,10);
+                const ds=toJSTStr(d);
                 const isSelected=ds===schDate;
                 const isToday=ds===todayStr;
                 const dayItems=(schedules[ds]||[]).filter(s=>s.title||s.startTime);
@@ -554,14 +558,15 @@ function App(){
               const offset=firstDay.getDay()===0?6:firstDay.getDay()-1;
               const todayStr=getTodayStr();
               const cells=[];
+              // JST日付文字列を生成するヘルパー
+              const toJSTStr=(y,m,d)=>`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
               for(let i=0;i<offset;i++)cells.push(e('div',{key:`empty${i}`}));
               for(let day=1;day<=lastDay.getDate();day++){
-                const d=new Date(year,month,day);
-                const ds=d.toISOString().slice(0,10);
+                const ds=toJSTStr(year,month,day);
                 const isSelected=ds===schDate;
                 const isToday=ds===todayStr;
                 const schCnt=(schedules[ds]||[]).filter(s=>s.title||s.startTime).length;
-                const dow=d.getDay();
+                const dow=new Date(year,month,day).getDay();
                 const isSat=dow===6,isSun=dow===0;
                 cells.push(e('button',{key:ds,onClick:()=>{setSchDate(ds);setView('schedule');},style:{
                   display:'flex',flexDirection:'column',alignItems:'center',

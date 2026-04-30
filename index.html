@@ -398,7 +398,7 @@ function App(){
   const gRange=gMax-gMin||60;
   const gTicks=[];for(let h=Math.floor(gMin/60);h<=Math.ceil(gMax/60);h++)gTicks.push(h);
 
-  const NAV=[['tasks','✅','タスク'],['schedule','🗓','週'],['month','📆','月'],['results','📝','実績'],['daily','📊','デイリー'],['presets','🏷','項目']];
+  const NAV=[['tasks','✅','タスク'],['schedule','🗓','週'],['month','📆','月'],['results','📝','実績'],['daily','📊','デイリー'],['ai','🤖','AI相談'],['presets','🏷','項目']];
   const pad={padding:'18px 16px',paddingBottom:'calc(20px + env(safe-area-inset-bottom))'};
 
   return e('div',{style:{height:'100vh',display:'flex',flexDirection:'column',background:'#f5f0e8',overflow:'hidden'}},
@@ -724,6 +724,62 @@ function App(){
               )
             )
           :e(Card,{style:{padding:'40px 20px',textAlign:'center'}},e('div',{style:{fontSize:'36px',marginBottom:'12px'}},'📊'),e('div',{style:{fontSize:'14px',opacity:0.5}},'この日の記録がありません'))
+      ),
+
+      // AI相談
+      view==='ai'&&e('div',{style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',...pad}},
+        e('div',{style:{textAlign:'center',marginBottom:'24px'}},
+          e('div',{style:{fontSize:'48px',marginBottom:'12px'}},'🤖'),
+          e('div',{style:{fontSize:'18px',fontWeight:'700',color:'#2c2416',marginBottom:'6px'}},'AIに相談する'),
+          e('div',{style:{fontSize:'13px',opacity:0.5,lineHeight:'1.7'}},'相談内容を選ぶとClaudeチャットが開きます',e('br'),'スケジュール・実績を見ながら提案します')
+        ),
+
+        // 3つの選択肢
+        [
+          {
+            icon:'📋',
+            title:'今日の空き時間に何をすべきか提案して',
+            desc:'今日のスケジュールを確認して、空き時間にやるべきことを提案してもらいます',
+            msg:'今日の空き時間に何をすべきか提案して',
+            color:'#d4a843',
+            bg:'#fdf6e8',
+          },
+          {
+            icon:'📈',
+            title:'実績から業務改善を提案して',
+            desc:'最近の実績データをもとに、業務の効率化や改善点を提案してもらいます',
+            msg:'最近の実績から業務改善を提案して',
+            color:'#6b9e78',
+            bg:'#edf7f0',
+          },
+          {
+            icon:'🗓',
+            title:'翌日・翌週のスケジュールを最適化して',
+            desc:'今後の予定を確認して、最適なスケジュールの組み方を提案してもらいます',
+            msg:'翌日・翌週のスケジュールを最適化して',
+            color:'#7b8ec8',
+            bg:'#eef2ff',
+          },
+        ].map((item,i)=>e('a',{
+          key:i,
+          href:`https://claude.ai/chat/75588acb-d104-492b-bb3a-d1d34b9a2c47`,
+          style:{display:'block',textDecoration:'none',marginBottom:'14px'}
+        },
+          e(Card,{style:{padding:'18px 20px',borderLeft:`4px solid ${item.color}`,display:'flex',alignItems:'flex-start',gap:'14px'}},
+            e('div',{style:{fontSize:'28px',flexShrink:0}},item.icon),
+            e('div',{style:{flex:1}},
+              e('div',{style:{fontSize:'15px',fontWeight:'700',color:'#2c2416',marginBottom:'5px'}},item.title),
+              e('div',{style:{fontSize:'12px',color:'#8a6a2e',lineHeight:'1.6'}},item.desc)
+            ),
+            e('div',{style:{fontSize:'18px',opacity:0.3,flexShrink:0,alignSelf:'center'}},'›')
+          )
+        )),
+
+        e('div',{style:{background:'rgba(123,142,200,0.1)',borderRadius:'14px',padding:'14px 16px',marginTop:'8px'}}),
+          e('div',{style:{fontSize:'11px',color:'#5a6a9e',lineHeight:'1.8',textAlign:'center'}},
+            '💡 チャットが開いたら選んだ相談内容を送ってください',e('br'),
+            'カレンダーや実績を確認しながら提案します'
+          )
       ),
 
       // PRESETS

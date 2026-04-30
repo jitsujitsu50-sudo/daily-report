@@ -269,6 +269,43 @@ function App(){
     }
   },[view,schDate]);
 
+  // 1ヶ月分まとめて取得
+  const [monthFetching,setMonthFetching]=useState(false);
+  const fetchMonth=async(dateStr)=>{
+    const month=dateStr.slice(0,7); // "2026-05"
+    setMonthFetching(true);
+    try{
+      const res=await fetch(`${GAS_URL}?month=${month}`);
+      const data=await res.json();
+      if(!Array.isArray(data))return;
+      // 日付ごとにグループ化
+      const byDate={};
+      data.forEach(ev=>{
+        if(!ev.date||ev.allDay)return;
+        if(!ev.startTime||!ev.endTime)return;
+        if(!byDate[ev.date])byDate[ev.date]=[];
+        byDate[ev.date].push(ev);
+      });
+      if(!Object.keys(byDate).length)return;
+      setSchedules(prev=>{
+        const updated={...prev};
+        Object.entries(byDate).forEach(([date,evs])=>{
+          const existing=updated[date]||[];
+          const existingKeys=existing.map(e=>e.title+e.startTime);
+          const newItems=evs
+            .filter(ev=>!existingKeys.includes(ev.summary+ev.startTime))
+            .map(ev=>({id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''}));
+          if(!newItems.length)return;
+          const merged=[...existing,...newItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
+          updated[date]=merged;
+        });
+        LS.set(SCHEDULE_KEY,updated);
+        return updated;
+      });
+    }catch(err){}
+    setMonthFetching(false);
+  };
+
   // タイマー：開始時刻との差分で正確に計測
   useEffect(()=>{
     if(timerRunning&&timerStartISO){
@@ -533,11 +570,18 @@ function App(){
         )
       ),
 
-      // RESULTS
       // MONTH
       view==='month'&&e('div',{style:{display:'flex',flexDirection:'column',height:'100%'}},
         // 月カレンダーヘッダー
         e('div',{style:{background:'#2c2416',padding:'10px 16px 14px',flexShrink:0}},
+          // 取得ボタン
+          e('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:'8px'}},
+            e('button',{
+              onClick:()=>fetchMonth(schDate),
+              disabled:monthFetching,
+              style:{background:'rgba(212,168,67,0.25)',border:'1px solid rgba(212,168,67,0.5)',color:'#d4a843',padding:'4px 12px',borderRadius:'10px',fontSize:'11px',fontWeight:'700',cursor:'pointer'}
+            },monthFetching?'取得中…':'🔄 この月を取得')
+          ),
           e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
             e('button',{onClick:()=>{const d=new Date(schDate);d.setMonth(d.getMonth()-1);setSchDate(d.toISOString().slice(0,10));},
               style:{background:'rgba(245,240,232,0.15)',border:'none',color:'#f5f0e8',padding:'4px 12px',borderRadius:'10px',fontSize:'16px',cursor:'pointer'}},'‹'),

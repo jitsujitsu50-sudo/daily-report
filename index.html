@@ -272,37 +272,41 @@ function App(){
   // 1ヶ月分まとめて取得
   const [monthFetching,setMonthFetching]=useState(false);
   const fetchMonth=async(dateStr)=>{
-    const month=dateStr.slice(0,7); // "2026-05"
+    const month=dateStr.slice(0,7);
     setMonthFetching(true);
     try{
       const res=await fetch(`${GAS_URL}?month=${month}`);
       const data=await res.json();
-      if(!Array.isArray(data))return;
-      // 日付ごとにグループ化
+      if(!Array.isArray(data)||!data.length){
+        setMonthFetching(false);
+        return;
+      }
       const byDate={};
       data.forEach(ev=>{
-        if(!ev.date||ev.allDay)return;
-        if(!ev.startTime||!ev.endTime)return;
+        if(!ev.date||ev.allDay||!ev.startTime||!ev.endTime)return;
         if(!byDate[ev.date])byDate[ev.date]=[];
         byDate[ev.date].push(ev);
       });
-      if(!Object.keys(byDate).length)return;
-      setSchedules(prev=>{
-        const updated={...prev};
-        Object.entries(byDate).forEach(([date,evs])=>{
-          const existing=updated[date]||[];
-          const existingKeys=existing.map(e=>e.title+e.startTime);
-          const newItems=evs
-            .filter(ev=>!existingKeys.includes(ev.summary+ev.startTime))
-            .map(ev=>({id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''}));
-          if(!newItems.length)return;
-          const merged=[...existing,...newItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
-          updated[date]=merged;
+      if(Object.keys(byDate).length){
+        setSchedules(prev=>{
+          const updated={...prev};
+          Object.entries(byDate).forEach(([date,evs])=>{
+            const existing=updated[date]||[];
+            const existingKeys=existing.map(e=>e.title+e.startTime);
+            const newItems=evs
+              .filter(ev=>!existingKeys.includes(ev.summary+ev.startTime))
+              .map(ev=>({id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''}));
+            if(!newItems.length)return;
+            const merged=[...existing,...newItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
+            updated[date]=merged;
+          });
+          LS.set(SCHEDULE_KEY,updated);
+          return updated;
         });
-        LS.set(SCHEDULE_KEY,updated);
-        return updated;
-      });
-    }catch(err){}
+      }
+    }catch(err){
+      console.error('fetchMonth error:',err);
+    }
     setMonthFetching(false);
   };
 

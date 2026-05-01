@@ -142,61 +142,21 @@ function TimeRow({item,onUpdate,onDelete,accentColor,presets,autoOpen,onAutoOpen
   );
 }
 
-function TaskItem({task,onToggle,onUpdate,onDelete,taskCats}){
-  const [open,setOpen]=useState(false);
-  const [et,setEt]=useState('');
-  const [ep,setEp]=useState('medium');
-  const [ed,setEd]=useState('');
-  const [ec,setEc]=useState('');
-  const [em,setEm]=useState('');
+function TaskItem({task,onToggle,onEdit}){
   const p=PRIORITY[task.priority]||PRIORITY.medium;
   const overdue=isOverdue(task.dueDate)&&!task.done;
-  const openEdit=()=>{setEt(task.title);setEp(task.priority);setEd(task.dueDate||'');setEc(task.category||'');setEm(task.month||'');setOpen(true);};
-  return e('div',null,
-    e('div',{onClick:()=>!task.done&&openEdit(),style:{display:'flex',alignItems:'flex-start',gap:'10px',padding:'12px 14px',background:'white',borderRadius:'14px',marginBottom:'8px',boxShadow:'0 1px 6px rgba(44,36,22,.06)',borderLeft:`4px solid ${task.done?'#ddd':p.color}`,opacity:task.done?0.55:1,cursor:task.done?'default':'pointer'}},
-      e('button',{onClick:ev=>{ev.stopPropagation();onToggle(task.id);},style:{width:'22px',height:'22px',borderRadius:'6px',border:`2px solid ${task.done?'#bbb':p.color}`,background:task.done?'#bbb':'transparent',flexShrink:0,marginTop:'1px',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px',fontWeight:'700'}},task.done&&'✓'),
-      e('div',{style:{flex:1}},
-        e('div',{style:{fontSize:'15px',textDecoration:task.done?'line-through':'none',color:task.done?'#aaa':'#2c2416',marginBottom:'4px'}},task.title||'（タスク名なし）'),
-        e('div',{style:{display:'flex',gap:'5px',alignItems:'center',flexWrap:'wrap'}},
-          e('span',{style:{fontSize:'10px',fontWeight:'700',color:p.color,background:p.bg,padding:'2px 8px',borderRadius:'8px'}},p.label),
-          task.category&&e('span',{style:{fontSize:'10px',fontWeight:'700',color:'#8a6a2e',background:'#fdf6e8',padding:'2px 8px',borderRadius:'8px'}},task.category),
-          task.month&&e('span',{style:{fontSize:'10px',fontWeight:'700',color:'white',background:'#7b8ec8',padding:'2px 8px',borderRadius:'8px'}},task.month),
-          task.dueDate&&e('span',{style:{fontSize:'11px',color:overdue?'#c87060':'#8a6a2e',fontWeight:overdue?'700':'400'}},overdue?`⚠️ ${formatDateShort(task.dueDate)}`:`📅 ${formatDateShort(task.dueDate)}`)
-        )
-      ),
-      !task.done&&e('span',{style:{fontSize:'14px',opacity:0.25}},'›')
-    ),
-    open&&ReactDOM.createPortal(e('div',{onClick:()=>setOpen(false),style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'flex-end'}},
-      e('div',{onClick:ev=>ev.stopPropagation(),style:{background:'#faf6f0',borderRadius:'20px 20px 0 0',padding:'20px 20px 36px',width:'100%',maxHeight:'85vh',overflowY:'auto',boxSizing:'border-box'}},
-        e('div',{style:{width:'36px',height:'4px',background:'#ccc',borderRadius:'2px',margin:'0 auto 18px'}}),
-        e('input',{type:'text',value:et,onChange:ev=>setEt(ev.target.value),placeholder:'タスク名',autoFocus:true,
-          style:{width:'100%',border:'none',borderBottom:'2px solid #e8dfd0',outline:'none',fontSize:'16px',color:'#2c2416',background:'transparent',padding:'4px 0 10px',marginBottom:'14px',boxSizing:'border-box'}}),
-        e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'優先度'),
-        e('div',{style:{display:'flex',gap:'8px',marginBottom:'14px'}},
-          ['high','medium','low'].map(pr=>e('button',{key:pr,onClick:()=>setEp(pr),style:{flex:1,padding:'8px',borderRadius:'10px',border:'none',fontSize:'13px',fontWeight:'700',background:ep===pr?PRIORITY[pr].color:PRIORITY[pr].bg,color:ep===pr?'white':PRIORITY[pr].color}},PRIORITY[pr].label))
-        ),
-        taskCats.length>0&&e('div',null,
-          e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'カテゴリ'),
-          e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'14px'}},
-            e('button',{onClick:()=>setEc(''),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'12px',background:ec===''?'#2c2416':'#f0ebe0',color:ec===''?'#f5f0e8':'#6b5a3a',fontWeight:ec===''?'700':'400'}},'なし'),
-            taskCats.map(c=>e('button',{key:c,onClick:()=>setEc(c),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'12px',background:ec===c?'#d4a843':'#f0ebe0',color:ec===c?'#2c2416':'#6b5a3a',fontWeight:ec===c?'700':'400'}},c))
-          )
-        ),
-        e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'対象月'),
-        e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'14px'}},
-          e('button',{onClick:()=>setEm(''),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'12px',background:em===''?'#2c2416':'#f0ebe0',color:em===''?'#f5f0e8':'#6b5a3a',fontWeight:em===''?'700':'400'}},'なし'),
-          MONTHS.map(m=>e('button',{key:m,onClick:()=>setEm(m),style:{padding:'5px 10px',borderRadius:'14px',border:'none',fontSize:'12px',background:em===m?'#7b8ec8':'#f0ebe0',color:em===m?'white':'#6b5a3a',fontWeight:em===m?'700':'400'}},m))
-        ),
-        e('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'20px'}},
-          e('span',{style:{fontSize:'13px',opacity:0.5}},'期日'),
-          e('input',{type:'date',value:ed,onChange:ev=>setEd(ev.target.value),style:{flex:1,border:'none',outline:'none',fontSize:'14px',color:'#2c2416',background:'#f0ebe0',padding:'8px 10px',borderRadius:'10px'}})
-        ),
-        e('div',{style:{display:'flex',gap:'10px'}},
-          e('button',{onClick:()=>{onDelete(task.id);setOpen(false);},style:{flex:1,padding:'13px',borderRadius:'12px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'14px',fontWeight:'700'}},'削除'),
-          e('button',{onClick:()=>{onUpdate(task.id,{title:et,priority:ep,dueDate:ed,category:ec,month:em});setOpen(false);},style:{flex:2,padding:'13px',borderRadius:'12px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'14px',fontWeight:'700'}},'保存')
-        )
+  return e('div',{onClick:()=>!task.done&&onEdit(task),style:{display:'flex',alignItems:'flex-start',gap:'10px',padding:'12px 14px',background:'white',borderRadius:'14px',marginBottom:'8px',boxShadow:'0 1px 6px rgba(44,36,22,.06)',borderLeft:`4px solid ${task.done?'#ddd':p.color}`,opacity:task.done?0.55:1,cursor:task.done?'default':'pointer'}},
+    e('button',{onClick:ev=>{ev.stopPropagation();onToggle(task.id);},style:{width:'22px',height:'22px',borderRadius:'6px',border:`2px solid ${task.done?'#bbb':p.color}`,background:task.done?'#bbb':'transparent',flexShrink:0,marginTop:'1px',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px',fontWeight:'700'}},task.done&&'✓'),
+    e('div',{style:{flex:1}},
+      e('div',{style:{fontSize:'15px',textDecoration:task.done?'line-through':'none',color:task.done?'#aaa':'#2c2416',marginBottom:'4px'}},task.title||'（タスク名なし）'),
+      e('div',{style:{display:'flex',gap:'5px',alignItems:'center',flexWrap:'wrap'}},
+        e('span',{style:{fontSize:'10px',fontWeight:'700',color:p.color,background:p.bg,padding:'2px 8px',borderRadius:'8px'}},p.label),
+        task.category&&e('span',{style:{fontSize:'10px',fontWeight:'700',color:'#8a6a2e',background:'#fdf6e8',padding:'2px 8px',borderRadius:'8px'}},task.category),
+        task.month&&e('span',{style:{fontSize:'10px',fontWeight:'700',color:'white',background:'#7b8ec8',padding:'2px 8px',borderRadius:'8px'}},task.month),
+        task.dueDate&&e('span',{style:{fontSize:'11px',color:overdue?'#c87060':'#8a6a2e',fontWeight:overdue?'700':'400'}},overdue?`⚠️ ${formatDateShort(task.dueDate)}`:`📅 ${formatDateShort(task.dueDate)}`)
       )
-    ),document.body)
+    ),
+    !task.done&&e('span',{style:{fontSize:'14px',opacity:0.25}},'›')
   );
 }
 
@@ -226,6 +186,12 @@ function App(){
   const [presets,setPresets]=useState(DEFAULT_PRESETS);
   const [newPreset,setNewPreset]=useState('');
   const [view,setView]=useState('tasks');
+  const [editingTask,setEditingTask]=useState(null);
+  const [etTitle,setEtTitle]=useState('');
+  const [etPriority,setEtPriority]=useState('medium');
+  const [etDue,setEtDue]=useState('');
+  const [etCat,setEtCat]=useState('');
+  const [etMonth,setEtMonth]=useState('');
   // Calendar
   const [calDate,setCalDate]=useState(today);
   const [calEvents,setCalEvents]=useState([]);
@@ -333,6 +299,10 @@ function App(){
   },[timerRunning,timerStartISO]);
 
   const saveTasks=(list)=>{setTasks(list);LS.set(TASKS_KEY,list);};
+  const openTaskEdit=(task)=>{setEtTitle(task.title);setEtPriority(task.priority||'medium');setEtDue(task.dueDate||'');setEtCat(task.category||'');setEtMonth(task.month||'');setEditingTask(task);};
+  const closeTaskEdit=()=>setEditingTask(null);
+  const saveTaskEdit=()=>{updateTask(editingTask.id,{title:etTitle,priority:etPriority,dueDate:etDue,category:etCat,month:etMonth});closeTaskEdit();};
+  const deleteTaskEdit=()=>{deleteTask(editingTask.id);closeTaskEdit();};
   const saveTaskCats=(list)=>{setTaskCats(list);LS.set(TASK_CATS_KEY,list);};
   const addTask=()=>{if(!ntTitle.trim())return;saveTasks([{id:uid(),title:ntTitle.trim(),priority:ntPriority,dueDate:ntDue,category:ntCategory,month:ntMonth,done:false},...tasks]);setNtTitle('');setNtDue('');setNtPriority('medium');setNtCategory('');setNtMonth('');setShowNewTask(false);};
   const toggleTask=(id)=>saveTasks(tasks.map(t=>t.id===id?{...t,done:!t.done}:t));
@@ -470,7 +440,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v5.5'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v5.6'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -540,7 +510,7 @@ function App(){
 
         filteredTasks.length===0
           ?e(Card,{style:{padding:'32px 20px',textAlign:'center'}},e('div',{style:{fontSize:'32px',marginBottom:'10px'}},'✅'),e('div',{style:{fontSize:'14px',opacity:0.5}},'タスクはありません'))
-          :filteredTasks.map(t=>e(TaskItem,{key:t.id,task:t,onToggle:toggleTask,onUpdate:updateTask,onDelete:deleteTask,taskCats}))
+          :filteredTasks.map(t=>e(TaskItem,{key:t.id,task:t,onToggle:toggleTask,onEdit:openTaskEdit}))
       ),
 
       // SCHEDULE
@@ -895,7 +865,38 @@ function App(){
           )
         )
     )
-    )
+    ),
+    editingTask&&ReactDOM.createPortal(e('div',{onClick:closeTaskEdit,style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'flex-end'}},
+      e('div',{onClick:ev=>ev.stopPropagation(),style:{background:'#faf6f0',borderRadius:'20px 20px 0 0',padding:'20px 20px 36px',width:'100%',maxHeight:'85vh',overflowY:'auto',boxSizing:'border-box'}},
+        e('div',{style:{width:'36px',height:'4px',background:'#ccc',borderRadius:'2px',margin:'0 auto 18px'}}),
+        e('input',{type:'text',value:etTitle,onChange:ev=>setEtTitle(ev.target.value),placeholder:'タスク名',autoFocus:true,
+          style:{width:'100%',border:'none',borderBottom:'2px solid #e8dfd0',outline:'none',fontSize:'16px',color:'#2c2416',background:'transparent',padding:'4px 0 10px',marginBottom:'14px',boxSizing:'border-box'}}),
+        e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'優先度'),
+        e('div',{style:{display:'flex',gap:'8px',marginBottom:'14px'}},
+          ['high','medium','low'].map(pr=>e('button',{key:pr,onClick:()=>setEtPriority(pr),style:{flex:1,padding:'8px',borderRadius:'10px',border:'none',fontSize:'13px',fontWeight:'700',background:etPriority===pr?PRIORITY[pr].color:PRIORITY[pr].bg,color:etPriority===pr?'white':PRIORITY[pr].color}},PRIORITY[pr].label))
+        ),
+        taskCats.length>0&&e('div',null,
+          e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'カテゴリ'),
+          e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'14px'}},
+            e('button',{onClick:()=>setEtCat(''),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'12px',background:etCat===''?'#2c2416':'#f0ebe0',color:etCat===''?'#f5f0e8':'#6b5a3a',fontWeight:etCat===''?'700':'400'}},'なし'),
+            taskCats.map(c=>e('button',{key:c,onClick:()=>setEtCat(c),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'12px',background:etCat===c?'#d4a843':'#f0ebe0',color:etCat===c?'#2c2416':'#6b5a3a',fontWeight:etCat===c?'700':'400'}},c))
+          )
+        ),
+        e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'対象月'),
+        e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'14px'}},
+          e('button',{onClick:()=>setEtMonth(''),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'12px',background:etMonth===''?'#2c2416':'#f0ebe0',color:etMonth===''?'#f5f0e8':'#6b5a3a',fontWeight:etMonth===''?'700':'400'}},'なし'),
+          MONTHS.map(m=>e('button',{key:m,onClick:()=>setEtMonth(m),style:{padding:'5px 10px',borderRadius:'14px',border:'none',fontSize:'12px',background:etMonth===m?'#7b8ec8':'#f0ebe0',color:etMonth===m?'white':'#6b5a3a',fontWeight:etMonth===m?'700':'400'}},m))
+        ),
+        e('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'20px'}},
+          e('span',{style:{fontSize:'13px',opacity:0.5}},'期日'),
+          e('input',{type:'date',value:etDue,onChange:ev=>setEtDue(ev.target.value),style:{flex:1,border:'none',outline:'none',fontSize:'14px',color:'#2c2416',background:'#f0ebe0',padding:'8px 10px',borderRadius:'10px'}})
+        ),
+        e('div',{style:{display:'flex',gap:'10px'}},
+          e('button',{onClick:deleteTaskEdit,style:{flex:1,padding:'13px',borderRadius:'12px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'14px',fontWeight:'700'}},'削除'),
+          e('button',{onClick:saveTaskEdit,style:{flex:2,padding:'13px',borderRadius:'12px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'14px',fontWeight:'700'}},'保存')
+        )
+      )
+    ),document.body)
   );
 }
 

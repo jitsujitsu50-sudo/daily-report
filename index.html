@@ -98,8 +98,9 @@ function DatePicker({value,onChange,max,label,totalMins}){
   );
 }
 
-function TimeRow({item,onUpdate,onDelete,accentColor,presets}){
+function TimeRow({item,onUpdate,onDelete,accentColor,presets,autoOpen,onAutoOpenDone}){
   const [open,setOpen]=useState(false);
+  useEffect(()=>{if(autoOpen){setOpen(true);if(onAutoOpenDone)onAutoOpenDone();}},[autoOpen]);
   const dur=calcDur(item.startTime,item.endTime);
   return e('div',null,
     e('div',{onClick:()=>setOpen(true),style:{display:'flex',alignItems:'center',gap:'10px',padding:'11px 14px',background:'white',borderRadius:'12px',marginBottom:'7px',boxShadow:'0 1px 6px rgba(44,36,22,.06)',borderLeft:`4px solid ${accentColor}`,cursor:'pointer'}},
@@ -345,7 +346,8 @@ function App(){
 
   const saveSch=(data)=>{setSchedules(data);LS.set(SCHEDULE_KEY,data);};
   const schItems=schedules[schDate]||[];
-  const addSch=()=>{const last=schItems[schItems.length-1];saveSch({...schedules,[schDate]:[...schItems,{id:uid(),title:'',startTime:last?.endTime||'',endTime:'',note:''}]});};
+  const [newSchId,setNewSchId]=useState(null);
+  const addSch=()=>{const id=uid();const last=schItems[schItems.length-1];saveSch({...schedules,[schDate]:[...schItems,{id,title:'',startTime:last?.endTime||'',endTime:'',note:''}]});setNewSchId(id);};
   const updateSch=(item)=>saveSch({...schedules,[schDate]:schItems.map(s=>s.id===item.id?item:s)});
   const deleteSch=(id)=>saveSch({...schedules,[schDate]:schItems.filter(s=>s.id!==id)});
   const sortedSch=[...schItems].sort((a,b)=>(a.startTime?timeToMin(a.startTime):9999)-(b.startTime?timeToMin(b.startTime):9999));
@@ -383,7 +385,8 @@ function App(){
   };
   const saveRes=(data,syncDate,immediate=false)=>{setResults(data);LS.set(RESULTS_KEY,data);if(syncDate!==undefined)syncDayToGAS(syncDate,data[syncDate]||[],immediate);};
   const resItems=results[resDate]||[];
-  const addRes=()=>saveRes({...results,[resDate]:[...resItems,{id:uid(),title:'',startTime:'',endTime:'',note:''}]});
+  const [newResId,setNewResId]=useState(null);
+  const addRes=()=>{const id=uid();saveRes({...results,[resDate]:[...resItems,{id,title:'',startTime:'',endTime:'',note:''}]});setNewResId(id);};
   const updateRes=(item)=>saveRes({...results,[resDate]:resItems.map(r=>r.id===item.id?item:r)});
   const deleteRes=(id)=>saveRes({...results,[resDate]:resItems.filter(r=>r.id!==id)});
   const sortedRes=[...resItems].sort((a,b)=>(a.startTime?timeToMin(a.startTime):9999)-(b.startTime?timeToMin(b.startTime):9999));
@@ -611,8 +614,8 @@ function App(){
             schDate===getTodayStr()&&e('span',{style:{fontSize:'10px',color:'#d4a843',fontWeight:'700'}},'● 今日')
           ),
           sortedSch.length===0&&e(Card,{style:{padding:'28px 20px',textAlign:'center',marginBottom:'12px'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'🗓'),e('div',{style:{fontSize:'13px',opacity:0.5}},'スケジュールがありません')),
-          sortedSch.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateSch,onDelete:deleteSch,accentColor:SCH_COLOR,presets})),
-          e('button',{onClick:addSch,style:{width:'100%',padding:'13px',borderRadius:'14px',border:`2px dashed ${SCH_COLOR}80`,background:'transparent',color:SCH_COLOR,fontSize:'14px',marginTop:'4px'}},'＋ 予定を追加')
+          e('button',{onClick:addSch,style:{width:'100%',padding:'12px',borderRadius:'14px',border:`2px dashed ${SCH_COLOR}80`,background:'transparent',color:SCH_COLOR,fontSize:'14px',fontWeight:'700',marginBottom:'12px'}},'＋ 予定を追加'),
+          sortedSch.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateSch,onDelete:deleteSch,accentColor:SCH_COLOR,presets,autoOpen:item.id===newSchId,onAutoOpenDone:()=>setNewSchId(null)}))
         )
       ),
 
@@ -623,8 +626,8 @@ function App(){
             schDate===getTodayStr()&&e('span',{style:{fontSize:'10px',color:'#d4a843',fontWeight:'700'}},'● 今日')
           ),
           sortedSch.length===0&&e(Card,{style:{padding:'28px 20px',textAlign:'center',marginBottom:'12px'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'🗓'),e('div',{style:{fontSize:'13px',opacity:0.5}},'スケジュールがありません')),
-          sortedSch.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateSch,onDelete:deleteSch,accentColor:SCH_COLOR,presets})),
-          e('button',{onClick:addSch,style:{width:'100%',padding:'13px',borderRadius:'14px',border:`2px dashed ${SCH_COLOR}80`,background:'transparent',color:SCH_COLOR,fontSize:'14px',marginTop:'4px'}},'＋ 予定を追加')
+          e('button',{onClick:addSch,style:{width:'100%',padding:'12px',borderRadius:'14px',border:`2px dashed ${SCH_COLOR}80`,background:'transparent',color:SCH_COLOR,fontSize:'14px',fontWeight:'700',marginBottom:'12px'}},'＋ 予定を追加'),
+          sortedSch.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateSch,onDelete:deleteSch,accentColor:SCH_COLOR,presets,autoOpen:item.id===newSchId,onAutoOpenDone:()=>setNewSchId(null)}))
         )
       ),
 
@@ -733,11 +736,13 @@ function App(){
               e('button',{onClick:()=>handleStart(),disabled:!timerActivity.trim(),style:{width:'100%',padding:'14px',borderRadius:'14px',border:'none',background:timerActivity.trim()?'#d4a843':'#e0d8cc',color:timerActivity.trim()?'#2c2416':'#aaa',fontSize:'16px',fontWeight:'700'}},'▶ スタート')
             ),
         e(DatePicker,{value:resDate,onChange:(d)=>{syncDayToGAS(resDate,results[resDate]||[],true);setResDate(d);},max:today,label:'記録する日付',totalMins:totalResMins}),
+        e('div',{style:{display:'flex',gap:'8px',marginBottom:'12px'}},
+          e('button',{onClick:addRes,style:{flex:1,padding:'12px',borderRadius:'14px',border:`2px dashed ${RES_COLOR}80`,background:'transparent',color:RES_COLOR,fontSize:'14px',fontWeight:'700'}},'＋ 追加'),
+          e('button',{onClick:()=>syncDayToGAS(resDate,results[resDate]||[],true),style:{padding:'12px 16px',borderRadius:'14px',border:'none',background:'#5a7a5a',color:'#fff',fontSize:'13px',fontWeight:'700'}},'☁ 同期')
+        ),
         e(SL,{text:'📝 実績一覧（同時間帯に複数記録OK）'}),
         sortedRes.length===0&&e(Card,{style:{padding:'28px 20px',textAlign:'center',marginBottom:'12px'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'📝'),e('div',{style:{fontSize:'13px',opacity:0.5}},'実績がありません')),
-        sortedRes.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateRes,onDelete:deleteRes,accentColor:RES_COLOR,presets})),
-        e('button',{onClick:addRes,style:{width:'100%',padding:'13px',borderRadius:'14px',border:`2px dashed ${RES_COLOR}80`,background:'transparent',color:RES_COLOR,fontSize:'14px',marginTop:'4px'}},'＋ 実績を手動追加'),
-        e('button',{onClick:()=>syncDayToGAS(resDate,results[resDate]||[],true),style:{width:'100%',padding:'10px',borderRadius:'12px',border:'none',background:'#5a7a5a',color:'#fff',fontSize:'13px',fontWeight:'700',marginTop:'8px'}},'☁ スプレッドシートに同期')
+        sortedRes.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateRes,onDelete:deleteRes,accentColor:RES_COLOR,presets,autoOpen:item.id===newResId,onAutoOpenDone:()=>setNewResId(null)}))
       ),
 
       // DAILY

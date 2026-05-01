@@ -358,15 +358,21 @@ function App(){
   const handleStop=()=>{const endStr=getTimeStr(new Date());setTimerRunning(false);const item={id:uid(),title:timerActivity,startTime:timerStartStr,endTime:endStr,note:''};const tr=results[today]||[];const updated={...results,[today]:[...tr,item]};saveRes(updated);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
   const handleCancel=()=>{setTimerRunning(false);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
 
-  const handleSync=async()=>{
-    setSyncing(true);setSyncMsg('');
-    try{
-      await fetch(GAS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({results,tasks,syncedAt:new Date().toISOString()}),headers:{'Content-Type':'text/plain'}});
-      setSyncMsg('同期完了 ✅');
-    }catch{
-      setSyncMsg('送信エラー ❌');
+  const handleCopyData=()=>{
+    const lines=['## 実績データ（直近30日）'];
+    Object.keys(results).sort().reverse().slice(0,30).forEach(date=>{
+      const items=(results[date]||[]).filter(r=>r.title||r.startTime);
+      if(items.length>0){
+        lines.push('\n### '+date);
+        items.forEach(r=>lines.push('- '+(r.startTime||'?')+'〜'+(r.endTime||'?')+' '+(r.title||'')+(r.note?' ('+r.note+')':'')));
+      }
+    });
+    const incomplete=tasks.filter(t=>!t.done);
+    if(incomplete.length>0){
+      lines.push('\n## 未完了タスク');
+      incomplete.forEach(t=>lines.push('- ['+(t.priority||'-')+'] '+(t.title||'')+(t.dueDate?' 期日:'+t.dueDate:'')+(t.category?' ['+t.category+']':'')));
     }
-    setSyncing(false);
+    navigator.clipboard.writeText(lines.join('\n')).then(()=>setSyncMsg('コピーしました ✅')).catch(()=>setSyncMsg('コピー失敗 ❌'));
   };
 
   const savePresets=(list)=>{setPresets(list);LS.set(PRESETS_KEY,list);};
@@ -747,15 +753,14 @@ function App(){
           e('div',{style:{fontSize:'13px',opacity:0.5,lineHeight:'1.7'}},'相談内容を選ぶとClaudeチャットが開きます',e('br'),'スケジュール・実績を見ながら提案します')
         ),
 
-        // 同期ボタン
+        // データコピーボタン
         e(Card,{style:{padding:'18px 20px',marginBottom:'20px',borderLeft:'4px solid #5a7a5a'}},
-          e('div',{style:{fontSize:'14px',fontWeight:'700',color:'#2c2416',marginBottom:'6px'}},'📤 実績データを同期'),
-          e('div',{style:{fontSize:'12px',opacity:0.6,lineHeight:'1.6',marginBottom:'12px'}},'タップするとスプレッドシートに実績・タスクを保存します。',e('br'),'AI相談前に同期しておくと、より精度の高い提案が得られます。'),
+          e('div',{style:{fontSize:'14px',fontWeight:'700',color:'#2c2416',marginBottom:'6px'}},'📋 実績データをコピー'),
+          e('div',{style:{fontSize:'12px',opacity:0.6,lineHeight:'1.6',marginBottom:'12px'}},'直近30日の実績・タスクをコピーします。',e('br'),'チャットに貼り付けてから相談内容を選んでください。'),
           e('button',{
-            onClick:handleSync,
-            disabled:syncing,
-            style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#ccc':'#5a7a5a',color:'#fff',opacity:syncing?0.7:1}
-          },syncing?'同期中…':'📤 スプレッドシートに同期する'),
+            onClick:handleCopyData,
+            style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:'#5a7a5a',color:'#fff'}
+          },'📋 データをコピーする'),
           syncMsg&&e('div',{style:{textAlign:'center',marginTop:'10px',fontSize:'13px',color:'#5a7a5a',fontWeight:'700'}},syncMsg)
         ),
 

@@ -347,11 +347,19 @@ function App(){
   const sortedSch=[...schItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
 
   const syncDayToGAS=(date,dayItems)=>{
-    try{
-      const entries=(dayItems||[]).filter(r=>r.title||r.startTime).map(r=>({s:r.startTime||'',e:r.endTime||'',t:r.title||'',n:r.note||''}));
-      const params=new URLSearchParams({action:'syncDay',date,entries:JSON.stringify(entries)});
-      fetch(`${GAS_URL}?${params}`).catch(()=>{});
-    }catch{}
+    const entries=(dayItems||[]).filter(r=>r.title||r.startTime).map(r=>({s:r.startTime||'',e:r.endTime||'',t:r.title||'',n:r.note||''}));
+    const params=new URLSearchParams({action:'syncDay',date,entries:JSON.stringify(entries)});
+    return fetch(`${GAS_URL}?${params}`).catch(()=>{});
+  };
+  const handleBulkSync=async()=>{
+    const dates=Object.keys(results).filter(d=>(results[d]||[]).some(r=>r.title||r.startTime)).sort();
+    if(dates.length===0){setSyncMsg('同期する実績がありません');return;}
+    setSyncing(true);setSyncMsg('');
+    for(let i=0;i<dates.length;i++){
+      setSyncMsg(`同期中… ${i+1}/${dates.length}日`);
+      await syncDayToGAS(dates[i],results[dates[i]]||[]);
+    }
+    setSyncing(false);setSyncMsg(`完了 ✅ ${dates.length}日分を同期しました`);
   };
   const saveRes=(data,syncDate)=>{setResults(data);LS.set(RESULTS_KEY,data);if(syncDate!==undefined)syncDayToGAS(syncDate,data[syncDate]||[]);};
   const resItems=results[resDate]||[];
@@ -760,12 +768,19 @@ function App(){
           e('div',{style:{fontSize:'13px',opacity:0.5,lineHeight:'1.7'}},'相談内容を選ぶとClaudeチャットが開きます',e('br'),'スケジュール・実績を見ながら提案します')
         ),
 
-        // 自動同期の説明
-        e(Card,{style:{padding:'16px 20px',marginBottom:'20px',background:'#edf7f0',borderLeft:'4px solid #5a7a5a'}},
-          e('div',{style:{fontSize:'13px',color:'#3a6a4a',lineHeight:'1.8'}},
-            '✅ 実績を入力・保存すると自動でスプレッドシートに記録されます。',e('br'),
-            '相談内容を選ぶとClaudeがスプレッドシートを読んで分析します。'
-          )
+        // 同期カード
+        e(Card,{style:{padding:'18px 20px',marginBottom:'20px',borderLeft:'4px solid #5a7a5a'}},
+          e('div',{style:{fontSize:'14px',fontWeight:'700',color:'#2c2416',marginBottom:'6px'}},'📊 スプレッドシート同期'),
+          e('div',{style:{fontSize:'12px',opacity:0.6,lineHeight:'1.7',marginBottom:'12px'}},
+            '✅ 実績の入力・編集は自動でスプレッドシートに反映されます。',e('br'),
+            '過去の実績はまだ未反映のため、初回のみ一括同期してください。'
+          ),
+          e('button',{
+            onClick:handleBulkSync,
+            disabled:syncing,
+            style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#aaa':'#5a7a5a',color:'#fff'}
+          },syncing?syncMsg:'📤 過去データを一括同期する'),
+          !syncing&&syncMsg&&e('div',{style:{textAlign:'center',marginTop:'10px',fontSize:'13px',color:'#5a7a5a',fontWeight:'700'}},syncMsg)
         ),
 
         // 3つの選択肢

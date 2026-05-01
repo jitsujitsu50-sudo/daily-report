@@ -101,37 +101,40 @@ function DatePicker({value,onChange,max,label,totalMins}){
 function TimeRow({item,onUpdate,onDelete,accentColor,presets}){
   const [open,setOpen]=useState(false);
   const dur=calcDur(item.startTime,item.endTime);
-  if(open){
-    return e(Card,{style:{padding:'14px',marginBottom:'8px',borderLeft:`4px solid ${accentColor}`}},
-      presets.length>0&&e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'10px'}},
-        presets.map(p=>e('button',{key:p,onClick:()=>onUpdate({...item,title:p}),style:{padding:'4px 10px',borderRadius:'12px',border:'none',fontSize:'11px',background:item.title===p?'#d4a843':'#f5f0e8',color:item.title===p?'#2c2416':'#6b5a3a',fontWeight:item.title===p?'700':'400'}},p))
+  return e('div',null,
+    e('div',{onClick:()=>setOpen(true),style:{display:'flex',alignItems:'center',gap:'10px',padding:'11px 14px',background:'white',borderRadius:'12px',marginBottom:'7px',boxShadow:'0 1px 6px rgba(44,36,22,.06)',borderLeft:`4px solid ${accentColor}`,cursor:'pointer'}},
+      e('div',{style:{flex:1}},
+        e('div',{style:{fontSize:'14px',color:'#2c2416',marginBottom:'2px'}},item.title||'（未入力）'),
+        e('div',{style:{fontSize:'11px',color:'#8a6a2e'}},
+          item.startTime&&item.endTime?`${item.startTime} → ${item.endTime}`:item.startTime||'時間未設定',
+          dur&&e('span',{style:{marginLeft:'6px',opacity:0.7}},dur),
+          item.note&&e('span',{style:{marginLeft:'8px',opacity:0.45}},`📝 ${item.note}`)
+        )
       ),
-      e('input',{type:'text',value:item.title,onChange:ev=>onUpdate({...item,title:ev.target.value}),placeholder:'内容を入力…',
-        style:{width:'100%',border:'none',borderBottom:'1.5px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'2px 0 8px',marginBottom:'10px'}}),
-      e('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px',flexWrap:'wrap'}},
-        e('input',{type:'time',value:item.startTime||'',onChange:ev=>onUpdate({...item,startTime:ev.target.value}),style:{border:'none',outline:'none',fontSize:'14px',color:'#2c2416',background:'#f8f4ed',padding:'5px 8px',borderRadius:'8px',width:'88px'}}),
-        e('span',{style:{fontSize:'12px',opacity:0.35,fontWeight:'700'}},'→'),
-        e('input',{type:'time',value:item.endTime||'',onChange:ev=>onUpdate({...item,endTime:ev.target.value}),style:{border:'none',outline:'none',fontSize:'14px',color:'#2c2416',background:'#f8f4ed',padding:'5px 8px',borderRadius:'8px',width:'88px'}}),
-        dur&&e('span',{style:{fontSize:'11px',color:'#8a6a2e',fontWeight:'700',background:'#fdf6e8',padding:'3px 8px',borderRadius:'8px'}},dur)
-      ),
-      e('input',{type:'text',value:item.note||'',onChange:ev=>onUpdate({...item,note:ev.target.value}),placeholder:'メモ（任意）',
-        style:{width:'100%',border:'none',borderBottom:'1px solid #f0e8d8',outline:'none',fontSize:'13px',color:'#2c2416',background:'transparent',padding:'2px 0 6px',marginBottom:'12px'}}),
-      e('div',{style:{display:'flex',gap:'8px'}},
-        e('button',{onClick:()=>onDelete(item.id),style:{flex:1,padding:'9px',borderRadius:'10px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'13px',fontWeight:'700'}},'削除'),
-        e('button',{onClick:()=>setOpen(false),style:{flex:2,padding:'9px',borderRadius:'10px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'13px',fontWeight:'700'}},'完了')
-      )
-    );
-  }
-  return e('div',{onClick:()=>setOpen(true),style:{display:'flex',alignItems:'center',gap:'10px',padding:'11px 14px',background:'white',borderRadius:'12px',marginBottom:'7px',boxShadow:'0 1px 6px rgba(44,36,22,.06)',borderLeft:`4px solid ${accentColor}`,cursor:'pointer'}},
-    e('div',{style:{flex:1}},
-      e('div',{style:{fontSize:'14px',color:'#2c2416',marginBottom:'2px'}},item.title||'（未入力）'),
-      e('div',{style:{fontSize:'11px',color:'#8a6a2e'}},
-        item.startTime&&item.endTime?`${item.startTime} → ${item.endTime}`:item.startTime||'時間未設定',
-        dur&&e('span',{style:{marginLeft:'6px',opacity:0.7}},dur),
-        item.note&&e('span',{style:{marginLeft:'8px',opacity:0.45}},`📝 ${item.note}`)
-      )
+      e('span',{style:{fontSize:'14px',opacity:0.25}},'›')
     ),
-    e('span',{style:{fontSize:'14px',opacity:0.25}},'›')
+    open&&e('div',{onClick:()=>setOpen(false),style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'flex-end'}},
+      e('div',{onClick:ev=>ev.stopPropagation(),style:{background:'#faf6f0',borderRadius:'20px 20px 0 0',padding:'20px 20px 36px',width:'100%',maxHeight:'82vh',overflowY:'auto',boxSizing:'border-box'}},
+        e('div',{style:{width:'36px',height:'4px',background:'#ccc',borderRadius:'2px',margin:'0 auto 18px'}}),
+        presets.length>0&&e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'12px'}},
+          presets.map(p=>e('button',{key:p,onClick:()=>onUpdate({...item,title:p}),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'12px',background:item.title===p?'#d4a843':'#f0ebe0',color:item.title===p?'#2c2416':'#6b5a3a',fontWeight:item.title===p?'700':'400'}},p))
+        ),
+        e('input',{type:'text',value:item.title,onChange:ev=>onUpdate({...item,title:ev.target.value}),placeholder:'内容を入力…',autoFocus:true,
+          style:{width:'100%',border:'none',borderBottom:'2px solid #e8dfd0',outline:'none',fontSize:'16px',color:'#2c2416',background:'transparent',padding:'4px 0 10px',marginBottom:'14px',boxSizing:'border-box'}}),
+        e('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'14px'}},
+          e('input',{type:'time',value:item.startTime||'',onChange:ev=>onUpdate({...item,startTime:ev.target.value}),style:{flex:1,border:'none',outline:'none',fontSize:'15px',color:'#2c2416',background:'#f0ebe0',padding:'8px 10px',borderRadius:'10px'}}),
+          e('span',{style:{fontSize:'13px',opacity:0.4,fontWeight:'700'}},'→'),
+          e('input',{type:'time',value:item.endTime||'',onChange:ev=>onUpdate({...item,endTime:ev.target.value}),style:{flex:1,border:'none',outline:'none',fontSize:'15px',color:'#2c2416',background:'#f0ebe0',padding:'8px 10px',borderRadius:'10px'}}),
+          dur&&e('span',{style:{fontSize:'12px',color:'#8a6a2e',fontWeight:'700',background:'#fdf6e8',padding:'4px 8px',borderRadius:'8px',whiteSpace:'nowrap'}},dur)
+        ),
+        e('input',{type:'text',value:item.note||'',onChange:ev=>onUpdate({...item,note:ev.target.value}),placeholder:'メモ（任意）',
+          style:{width:'100%',border:'none',borderBottom:'1px solid #e8dfd0',outline:'none',fontSize:'14px',color:'#2c2416',background:'transparent',padding:'4px 0 8px',marginBottom:'20px',boxSizing:'border-box'}}),
+        e('div',{style:{display:'flex',gap:'10px'}},
+          e('button',{onClick:()=>{onDelete(item.id);setOpen(false);},style:{flex:1,padding:'13px',borderRadius:'12px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'14px',fontWeight:'700'}},'削除'),
+          e('button',{onClick:()=>setOpen(false),style:{flex:2,padding:'13px',borderRadius:'12px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'14px',fontWeight:'700'}},'完了')
+        )
+      )
+    )
   );
 }
 

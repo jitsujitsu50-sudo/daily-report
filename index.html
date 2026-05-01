@@ -224,6 +224,8 @@ function App(){
   const [calError,setCalError]=useState('');
   const [calImportDone,setCalImportDone]=useState(false);
   const [calViewMode,setCalViewMode]=useState('week');
+  const [syncing,setSyncing]=useState(false);
+  const [syncMsg,setSyncMsg]=useState('');
   const tickRef=useRef(null);
 
   useEffect(()=>{
@@ -355,6 +357,17 @@ function App(){
   const handleStart=(act)=>{const a=(act||timerActivity).trim();if(!a)return;const now=new Date();const startISO=now.toISOString(),startStr=getTimeStr(now);setTimerActivity(a);setTimerStartStr(startStr);setTimerStartISO(startISO);setElapsed(0);setTimerRunning(true);LS.set(TIMER_KEY,{activity:a,startISO,startStr});};
   const handleStop=()=>{const endStr=getTimeStr(new Date());setTimerRunning(false);const item={id:uid(),title:timerActivity,startTime:timerStartStr,endTime:endStr,note:''};const tr=results[today]||[];const updated={...results,[today]:[...tr,item]};saveRes(updated);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
   const handleCancel=()=>{setTimerRunning(false);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
+
+  const handleSync=async()=>{
+    setSyncing(true);setSyncMsg('');
+    try{
+      await fetch(GAS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({results,tasks,syncedAt:new Date().toISOString()}),headers:{'Content-Type':'text/plain'}});
+      setSyncMsg('同期完了 ✅');
+    }catch{
+      setSyncMsg('送信エラー ❌');
+    }
+    setSyncing(false);
+  };
 
   const savePresets=(list)=>{setPresets(list);LS.set(PRESETS_KEY,list);};
   const addPreset=()=>{const v=newPreset.trim();if(!v||presets.includes(v))return;savePresets([...presets,v]);setNewPreset('');};
@@ -732,6 +745,18 @@ function App(){
           e('div',{style:{fontSize:'48px',marginBottom:'12px'}},'🤖'),
           e('div',{style:{fontSize:'18px',fontWeight:'700',color:'#2c2416',marginBottom:'6px'}},'AIに相談する'),
           e('div',{style:{fontSize:'13px',opacity:0.5,lineHeight:'1.7'}},'相談内容を選ぶとClaudeチャットが開きます',e('br'),'スケジュール・実績を見ながら提案します')
+        ),
+
+        // 同期ボタン
+        e(Card,{style:{padding:'18px 20px',marginBottom:'20px',borderLeft:'4px solid #5a7a5a'}},
+          e('div',{style:{fontSize:'14px',fontWeight:'700',color:'#2c2416',marginBottom:'6px'}},'📤 実績データを同期'),
+          e('div',{style:{fontSize:'12px',opacity:0.6,lineHeight:'1.6',marginBottom:'12px'}},'タップするとスプレッドシートに実績・タスクを保存します。',e('br'),'AI相談前に同期しておくと、より精度の高い提案が得られます。'),
+          e('button',{
+            onClick:handleSync,
+            disabled:syncing,
+            style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#ccc':'#5a7a5a',color:'#fff',opacity:syncing?0.7:1}
+          },syncing?'同期中…':'📤 スプレッドシートに同期する'),
+          syncMsg&&e('div',{style:{textAlign:'center',marginTop:'10px',fontSize:'13px',color:'#5a7a5a',fontWeight:'700'}},syncMsg)
         ),
 
         // 3つの選択肢

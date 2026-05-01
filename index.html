@@ -355,7 +355,7 @@ function App(){
     };
     if(immediate)return doSync();
     clearTimeout(syncTimersRef.current[date]);
-    syncTimersRef.current[date]=setTimeout(doSync,1500);
+    syncTimersRef.current[date]=setTimeout(doSync,5000);
   };
   const handleResetAndSync=async()=>{
     if(!confirm('スプレッドシートの全データを削除して再同期します。よろしいですか？'))return;

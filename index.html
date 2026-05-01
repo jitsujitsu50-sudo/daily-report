@@ -346,16 +346,23 @@ function App(){
   const deleteSch=(id)=>saveSch({...schedules,[schDate]:schItems.filter(s=>s.id!==id)});
   const sortedSch=[...schItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
 
-  const saveRes=(data)=>{setResults(data);LS.set(RESULTS_KEY,data);};
+  const syncDayToGAS=(date,dayItems)=>{
+    try{
+      const entries=(dayItems||[]).filter(r=>r.title||r.startTime).map(r=>({s:r.startTime||'',e:r.endTime||'',t:r.title||'',n:r.note||''}));
+      const params=new URLSearchParams({action:'syncDay',date,entries:JSON.stringify(entries)});
+      fetch(`${GAS_URL}?${params}`).catch(()=>{});
+    }catch{}
+  };
+  const saveRes=(data,syncDate)=>{setResults(data);LS.set(RESULTS_KEY,data);if(syncDate!==undefined)syncDayToGAS(syncDate,data[syncDate]||[]);};
   const resItems=results[resDate]||[];
-  const addRes=()=>saveRes({...results,[resDate]:[...resItems,{id:uid(),title:'',startTime:'',endTime:'',note:''}]});
-  const updateRes=(item)=>saveRes({...results,[resDate]:resItems.map(r=>r.id===item.id?item:r)});
-  const deleteRes=(id)=>saveRes({...results,[resDate]:resItems.filter(r=>r.id!==id)});
+  const addRes=()=>saveRes({...results,[resDate]:[...resItems,{id:uid(),title:'',startTime:'',endTime:'',note:''}]},resDate);
+  const updateRes=(item)=>saveRes({...results,[resDate]:resItems.map(r=>r.id===item.id?item:r)},resDate);
+  const deleteRes=(id)=>saveRes({...results,[resDate]:resItems.filter(r=>r.id!==id)},resDate);
   const sortedRes=[...resItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
   const totalResMins=resItems.reduce((acc,r)=>acc+calcMins(r.startTime,r.endTime),0);
 
   const handleStart=(act)=>{const a=(act||timerActivity).trim();if(!a)return;const now=new Date();const startISO=now.toISOString(),startStr=getTimeStr(now);setTimerActivity(a);setTimerStartStr(startStr);setTimerStartISO(startISO);setElapsed(0);setTimerRunning(true);LS.set(TIMER_KEY,{activity:a,startISO,startStr});};
-  const handleStop=()=>{const endStr=getTimeStr(new Date());setTimerRunning(false);const item={id:uid(),title:timerActivity,startTime:timerStartStr,endTime:endStr,note:''};const tr=results[today]||[];const updated={...results,[today]:[...tr,item]};saveRes(updated);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
+  const handleStop=()=>{const endStr=getTimeStr(new Date());setTimerRunning(false);const item={id:uid(),title:timerActivity,startTime:timerStartStr,endTime:endStr,note:''};const tr=results[today]||[];const updated={...results,[today]:[...tr,item]};saveRes(updated,today);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
   const handleCancel=()=>{setTimerRunning(false);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
 
   const handleCopyData=()=>{
@@ -753,15 +760,12 @@ function App(){
           e('div',{style:{fontSize:'13px',opacity:0.5,lineHeight:'1.7'}},'相談内容を選ぶとClaudeチャットが開きます',e('br'),'スケジュール・実績を見ながら提案します')
         ),
 
-        // データコピーボタン
-        e(Card,{style:{padding:'18px 20px',marginBottom:'20px',borderLeft:'4px solid #5a7a5a'}},
-          e('div',{style:{fontSize:'14px',fontWeight:'700',color:'#2c2416',marginBottom:'6px'}},'📋 実績データをコピー'),
-          e('div',{style:{fontSize:'12px',opacity:0.6,lineHeight:'1.6',marginBottom:'12px'}},'直近30日の実績・タスクをコピーします。',e('br'),'チャットに貼り付けてから相談内容を選んでください。'),
-          e('button',{
-            onClick:handleCopyData,
-            style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:'#5a7a5a',color:'#fff'}
-          },'📋 データをコピーする'),
-          syncMsg&&e('div',{style:{textAlign:'center',marginTop:'10px',fontSize:'13px',color:'#5a7a5a',fontWeight:'700'}},syncMsg)
+        // 自動同期の説明
+        e(Card,{style:{padding:'16px 20px',marginBottom:'20px',background:'#edf7f0',borderLeft:'4px solid #5a7a5a'}},
+          e('div',{style:{fontSize:'13px',color:'#3a6a4a',lineHeight:'1.8'}},
+            '✅ 実績を入力・保存すると自動でスプレッドシートに記録されます。',e('br'),
+            '相談内容を選ぶとClaudeがスプレッドシートを読んで分析します。'
+          )
         ),
 
         // 3つの選択肢

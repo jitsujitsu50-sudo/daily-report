@@ -440,7 +440,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v5.6'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v5.7'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -464,34 +464,8 @@ function App(){
           e(Card,{style:{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}},e('div',{style:{fontSize:'26px',fontWeight:'700',color:'#6b9e78'}},tasks.filter(t=>t.done).length),e('div',null,e('div',{style:{fontSize:'10px',letterSpacing:'2px',opacity:0.4}},'DONE'),e('div',{style:{fontSize:'12px',opacity:0.6}},'完了')))
         ),
 
-        // New task form
-        !showNewTask
-          ?e('button',{onClick:()=>setShowNewTask(true),style:{width:'100%',padding:'13px',borderRadius:'14px',border:'2px dashed rgba(212,168,67,0.6)',background:'transparent',color:'#8a6a2e',fontSize:'14px',marginBottom:'14px'}},'＋ タスクを追加')
-          :e(Card,{style:{padding:'18px',marginBottom:'14px',borderLeft:`4px solid ${PRIORITY[ntPriority].color}`}},
-              e(SL,{text:'NEW TASK'}),
-              // タスクプリセット
-              taskCats.length>0&&e('div',null,
-                e('div',{style:{fontSize:'10px',opacity:0.4,marginBottom:'6px'}},'カテゴリから選ぶ'),
-                e('div',{style:{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'12px'}},
-                  taskCats.map(c=>e('button',{key:c,onClick:()=>{setNtCategory(c);if(!ntTitle)setNtTitle(c);},
-                    style:{padding:'7px 14px',borderRadius:'20px',border:'none',fontSize:'12px',background:ntCategory===c?'#d4a843':'#f5f0e8',color:ntCategory===c?'#2c2416':'#6b5a3a',fontWeight:ntCategory===c?'700':'400'}},c))
-                )
-              ),
-              e('input',{type:'text',value:ntTitle,onChange:ev=>setNtTitle(ev.target.value),placeholder:'タスク名を入力…',onKeyDown:ev=>ev.key==='Enter'&&addTask(),autoFocus:true,style:{width:'100%',border:'none',borderBottom:'1.5px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'2px 0 10px',marginBottom:'12px'}}),
-              // 対象月
-              e('div',{style:{fontSize:'10px',opacity:0.4,marginBottom:'6px'}},'対象月（任意）'),
-              e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'12px'}},
-                MONTHS.map(m=>e('button',{key:m,onClick:()=>setNtMonth(ntMonth===m?'':m),
-                  style:{padding:'5px 10px',borderRadius:'12px',border:'none',fontSize:'11px',background:ntMonth===m?'#7b8ec8':'#f5f0e8',color:ntMonth===m?'white':'#6b5a3a',fontWeight:ntMonth===m?'700':'400'}},m))
-              ),
-              e('div',{style:{fontSize:'10px',opacity:0.4,marginBottom:'6px'}},'優先度'),
-              e('div',{style:{display:'flex',gap:'6px',marginBottom:'12px'}},['high','medium','low'].map(pr=>e('button',{key:pr,onClick:()=>setNtPriority(pr),style:{flex:1,padding:'7px',borderRadius:'10px',border:'none',fontSize:'12px',fontWeight:'700',background:ntPriority===pr?PRIORITY[pr].color:PRIORITY[pr].bg,color:ntPriority===pr?'white':PRIORITY[pr].color}},PRIORITY[pr].label))),
-              e('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px'}},e('span',{style:{fontSize:'12px',opacity:0.5}},'期日'),e('input',{type:'date',value:ntDue,onChange:ev=>setNtDue(ev.target.value),style:{flex:1,border:'none',outline:'none',fontSize:'13px',color:'#2c2416',background:'#f8f4ed',padding:'6px 10px',borderRadius:'8px'}})),
-              e('div',{style:{display:'flex',gap:'8px'}},
-                e('button',{onClick:()=>{setShowNewTask(false);setNtTitle('');setNtDue('');setNtPriority('medium');setNtCategory('');setNtMonth('');},style:{flex:1,padding:'10px',borderRadius:'12px',border:'none',background:'#f0ece4',color:'#8a6a2e',fontSize:'13px',fontWeight:'700'}},'キャンセル'),
-                e('button',{onClick:addTask,disabled:!ntTitle.trim(),style:{flex:2,padding:'10px',borderRadius:'12px',border:'none',background:ntTitle.trim()?'#2c2416':'#ccc',color:'#f5f0e8',fontSize:'13px',fontWeight:'700'}},'追加')
-              )
-            ),
+        // New task button
+        e('button',{onClick:()=>setShowNewTask(true),style:{width:'100%',padding:'13px',borderRadius:'14px',border:'2px dashed rgba(212,168,67,0.6)',background:'transparent',color:'#8a6a2e',fontSize:'14px',marginBottom:'14px'}},'＋ タスクを追加'),
 
         // フィルター：完了状態
         e('div',{style:{display:'flex',gap:'6px',marginBottom:'10px'}},[['active','未完了'],['done','完了'],['all','すべて']].map(([f,l])=>e('button',{key:f,onClick:()=>setTaskFilter(f),style:{flex:1,padding:'8px',borderRadius:'10px',border:'none',fontSize:'12px',fontWeight:'700',background:taskFilter===f?'#2c2416':'white',color:taskFilter===f?'#f5f0e8':'#8a6a2e',boxShadow:'0 1px 4px rgba(44,36,22,0.07)'}},l))),
@@ -895,6 +869,34 @@ function App(){
           e('button',{onClick:deleteTaskEdit,style:{flex:1,padding:'13px',borderRadius:'12px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'14px',fontWeight:'700'}},'削除'),
           e('button',{onClick:saveTaskEdit,style:{flex:2,padding:'13px',borderRadius:'12px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'14px',fontWeight:'700'}},'保存')
         )
+      )
+    ),document.body),
+    showNewTask&&ReactDOM.createPortal(e('div',{onClick:()=>{setShowNewTask(false);setNtTitle('');setNtDue('');setNtPriority('medium');setNtCategory('');setNtMonth('');},style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'flex-end'}},
+      e('div',{onClick:ev=>ev.stopPropagation(),style:{background:'#faf6f0',borderRadius:'20px 20px 0 0',padding:'20px 20px 36px',width:'100%',maxHeight:'85vh',overflowY:'auto',boxSizing:'border-box'}},
+        e('div',{style:{width:'36px',height:'4px',background:'#ccc',borderRadius:'2px',margin:'0 auto 18px'}}),
+        taskCats.length>0&&e('div',null,
+          e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'カテゴリ'),
+          e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'14px'}},
+            e('button',{onClick:()=>setNtCategory(''),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'12px',background:ntCategory===''?'#2c2416':'#f0ebe0',color:ntCategory===''?'#f5f0e8':'#6b5a3a',fontWeight:ntCategory===''?'700':'400'}},'なし'),
+            taskCats.map(c=>e('button',{key:c,onClick:()=>{setNtCategory(c);if(!ntTitle)setNtTitle(c);},style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'12px',background:ntCategory===c?'#d4a843':'#f0ebe0',color:ntCategory===c?'#2c2416':'#6b5a3a',fontWeight:ntCategory===c?'700':'400'}},c))
+          )
+        ),
+        e('input',{type:'text',value:ntTitle,onChange:ev=>setNtTitle(ev.target.value),placeholder:'タスク名',autoFocus:true,
+          style:{width:'100%',border:'none',borderBottom:'2px solid #e8dfd0',outline:'none',fontSize:'16px',color:'#2c2416',background:'transparent',padding:'4px 0 10px',marginBottom:'14px',boxSizing:'border-box'}}),
+        e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'優先度'),
+        e('div',{style:{display:'flex',gap:'8px',marginBottom:'14px'}},
+          ['high','medium','low'].map(pr=>e('button',{key:pr,onClick:()=>setNtPriority(pr),style:{flex:1,padding:'8px',borderRadius:'10px',border:'none',fontSize:'13px',fontWeight:'700',background:ntPriority===pr?PRIORITY[pr].color:PRIORITY[pr].bg,color:ntPriority===pr?'white':PRIORITY[pr].color}},PRIORITY[pr].label))
+        ),
+        e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'対象月'),
+        e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'14px'}},
+          e('button',{onClick:()=>setNtMonth(''),style:{padding:'5px 12px',borderRadius:'14px',border:'none',fontSize:'12px',background:ntMonth===''?'#2c2416':'#f0ebe0',color:ntMonth===''?'#f5f0e8':'#6b5a3a',fontWeight:ntMonth===''?'700':'400'}},'なし'),
+          MONTHS.map(m=>e('button',{key:m,onClick:()=>setNtMonth(m),style:{padding:'5px 10px',borderRadius:'14px',border:'none',fontSize:'12px',background:ntMonth===m?'#7b8ec8':'#f0ebe0',color:ntMonth===m?'white':'#6b5a3a',fontWeight:ntMonth===m?'700':'400'}},m))
+        ),
+        e('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'20px'}},
+          e('span',{style:{fontSize:'13px',opacity:0.5}},'期日'),
+          e('input',{type:'date',value:ntDue,onChange:ev=>setNtDue(ev.target.value),style:{flex:1,border:'none',outline:'none',fontSize:'14px',color:'#2c2416',background:'#f0ebe0',padding:'8px 10px',borderRadius:'10px'}})
+        ),
+        e('button',{onClick:addTask,disabled:!ntTitle.trim(),style:{width:'100%',padding:'13px',borderRadius:'12px',border:'none',background:ntTitle.trim()?'#2c2416':'#ccc',color:'#f5f0e8',fontSize:'14px',fontWeight:'700'}},'追加')
       )
     ),document.body)
   );

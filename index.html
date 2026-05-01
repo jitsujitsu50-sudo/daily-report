@@ -380,9 +380,9 @@ function App(){
   };
   const saveRes=(data,syncDate,immediate=false)=>{setResults(data);LS.set(RESULTS_KEY,data);if(syncDate!==undefined)syncDayToGAS(syncDate,data[syncDate]||[],immediate);};
   const resItems=results[resDate]||[];
-  const addRes=()=>saveRes({...results,[resDate]:[...resItems,{id:uid(),title:'',startTime:'',endTime:'',note:''}]},resDate);
-  const updateRes=(item)=>saveRes({...results,[resDate]:resItems.map(r=>r.id===item.id?item:r)},resDate);
-  const deleteRes=(id)=>saveRes({...results,[resDate]:resItems.filter(r=>r.id!==id)},resDate);
+  const addRes=()=>saveRes({...results,[resDate]:[...resItems,{id:uid(),title:'',startTime:'',endTime:'',note:''}]});
+  const updateRes=(item)=>saveRes({...results,[resDate]:resItems.map(r=>r.id===item.id?item:r)});
+  const deleteRes=(id)=>saveRes({...results,[resDate]:resItems.filter(r=>r.id!==id)});
   const sortedRes=[...resItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
   const totalResMins=resItems.reduce((acc,r)=>acc+calcMins(r.startTime,r.endTime),0);
 
@@ -470,7 +470,7 @@ function App(){
         )
       ),
       e('div',{style:{display:'flex',gap:'5px',overflowX:'auto',paddingBottom:'2px',WebkitOverflowScrolling:'touch'}},
-        NAV.map(([v,icon,label])=>e('button',{key:v,onClick:()=>setView(v),style:{padding:'6px 12px',borderRadius:'20px',border:'none',fontSize:'11px',whiteSpace:'nowrap',flexShrink:0,background:view===v?'#d4a843':'rgba(245,240,232,0.15)',color:view===v?'#2c2416':'#f5f0e8',fontWeight:view===v?'700':'400'}},`${icon} ${label}`))
+        NAV.map(([v,icon,label])=>e('button',{key:v,onClick:()=>{if(view==='results')syncDayToGAS(resDate,results[resDate]||[],true);setView(v);},style:{padding:'6px 12px',borderRadius:'20px',border:'none',fontSize:'11px',whiteSpace:'nowrap',flexShrink:0,background:view===v?'#d4a843':'rgba(245,240,232,0.15)',color:view===v?'#2c2416':'#f5f0e8',fontWeight:view===v?'700':'400'}},`${icon} ${label}`))
       )
     ),
 
@@ -729,11 +729,12 @@ function App(){
               e('input',{type:'text',value:timerActivity,onChange:ev=>setTimerActivity(ev.target.value),placeholder:'またはここに直接入力…',style:{width:'100%',border:'none',borderBottom:'2px solid #f0e8d8',outline:'none',fontSize:'15px',color:'#2c2416',background:'transparent',padding:'6px 0 10px',marginBottom:'14px'}}),
               e('button',{onClick:()=>handleStart(),disabled:!timerActivity.trim(),style:{width:'100%',padding:'14px',borderRadius:'14px',border:'none',background:timerActivity.trim()?'#d4a843':'#e0d8cc',color:timerActivity.trim()?'#2c2416':'#aaa',fontSize:'16px',fontWeight:'700'}},'▶ スタート')
             ),
-        e(DatePicker,{value:resDate,onChange:setResDate,max:today,label:'記録する日付',totalMins:totalResMins}),
+        e(DatePicker,{value:resDate,onChange:(d)=>{syncDayToGAS(resDate,results[resDate]||[],true);setResDate(d);},max:today,label:'記録する日付',totalMins:totalResMins}),
         e(SL,{text:'📝 実績一覧（同時間帯に複数記録OK）'}),
         sortedRes.length===0&&e(Card,{style:{padding:'28px 20px',textAlign:'center',marginBottom:'12px'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'📝'),e('div',{style:{fontSize:'13px',opacity:0.5}},'実績がありません')),
         sortedRes.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateRes,onDelete:deleteRes,accentColor:RES_COLOR,presets})),
-        e('button',{onClick:addRes,style:{width:'100%',padding:'13px',borderRadius:'14px',border:`2px dashed ${RES_COLOR}80`,background:'transparent',color:RES_COLOR,fontSize:'14px',marginTop:'4px'}},'＋ 実績を手動追加')
+        e('button',{onClick:addRes,style:{width:'100%',padding:'13px',borderRadius:'14px',border:`2px dashed ${RES_COLOR}80`,background:'transparent',color:RES_COLOR,fontSize:'14px',marginTop:'4px'}},'＋ 実績を手動追加'),
+        e('button',{onClick:()=>syncDayToGAS(resDate,results[resDate]||[],true),style:{width:'100%',padding:'10px',borderRadius:'12px',border:'none',background:'#5a7a5a',color:'#fff',fontSize:'13px',fontWeight:'700',marginTop:'8px'}},'☁ スプレッドシートに同期')
       ),
 
       // DAILY

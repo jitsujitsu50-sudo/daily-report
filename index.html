@@ -227,6 +227,7 @@ function App(){
   const [syncing,setSyncing]=useState(false);
   const [syncMsg,setSyncMsg]=useState('');
   const tickRef=useRef(null);
+  const syncTimersRef=useRef({});
 
   useEffect(()=>{
     const t=LS.get(TASKS_KEY);if(t)setTasks(t);
@@ -346,10 +347,26 @@ function App(){
   const deleteSch=(id)=>saveSch({...schedules,[schDate]:schItems.filter(s=>s.id!==id)});
   const sortedSch=[...schItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
 
-  const syncDayToGAS=(date,dayItems)=>{
-    const entries=(dayItems||[]).filter(r=>r.title||r.startTime).map(r=>({s:r.startTime||'',e:r.endTime||'',t:r.title||'',n:r.note||''}));
-    const params=new URLSearchParams({action:'syncDay',date,entries:JSON.stringify(entries)});
-    return fetch(`${GAS_URL}?${params}`).catch(()=>{});
+  const syncDayToGAS=(date,dayItems,immediate=false)=>{
+    const doSync=()=>{
+      const entries=(dayItems||[]).filter(r=>r.title||r.startTime).map(r=>({s:r.startTime||'',e:r.endTime||'',t:r.title||'',n:r.note||''}));
+      const params=new URLSearchParams({action:'syncDay',date,entries:JSON.stringify(entries)});
+      return fetch(`${GAS_URL}?${params}`).catch(()=>{});
+    };
+    if(immediate)return doSync();
+    clearTimeout(syncTimersRef.current[date]);
+    syncTimersRef.current[date]=setTimeout(doSync,1500);
+  };
+  const handleResetAndSync=async()=>{
+    if(!confirm('スプレッドシートの全データを削除して再同期します。よろしいですか？'))return;
+    setSyncing(true);setSyncMsg('スプシをリセット中…');
+    await fetch(`${GAS_URL}?action=resetSheet`).catch(()=>{});
+    const dates=Object.keys(results).filter(d=>(results[d]||[]).some(r=>r.title||r.startTime)).sort();
+    for(let i=0;i<dates.length;i++){
+      setSyncMsg(`再同期中… ${i+1}/${dates.length}日`);
+      await syncDayToGAS(dates[i],results[dates[i]]||[],true);
+    }
+    setSyncing(false);setSyncMsg(`完了 ✅ ${dates.length}日分をクリーンに同期しました`);
   };
   const handleBulkSync=async()=>{
     const dates=Object.keys(results).filter(d=>(results[d]||[]).some(r=>r.title||r.startTime)).sort();
@@ -357,11 +374,11 @@ function App(){
     setSyncing(true);setSyncMsg('');
     for(let i=0;i<dates.length;i++){
       setSyncMsg(`同期中… ${i+1}/${dates.length}日`);
-      await syncDayToGAS(dates[i],results[dates[i]]||[]);
+      await syncDayToGAS(dates[i],results[dates[i]]||[],true);
     }
     setSyncing(false);setSyncMsg(`完了 ✅ ${dates.length}日分を同期しました`);
   };
-  const saveRes=(data,syncDate)=>{setResults(data);LS.set(RESULTS_KEY,data);if(syncDate!==undefined)syncDayToGAS(syncDate,data[syncDate]||[]);};
+  const saveRes=(data,syncDate,immediate=false)=>{setResults(data);LS.set(RESULTS_KEY,data);if(syncDate!==undefined)syncDayToGAS(syncDate,data[syncDate]||[],immediate);};
   const resItems=results[resDate]||[];
   const addRes=()=>saveRes({...results,[resDate]:[...resItems,{id:uid(),title:'',startTime:'',endTime:'',note:''}]},resDate);
   const updateRes=(item)=>saveRes({...results,[resDate]:resItems.map(r=>r.id===item.id?item:r)},resDate);
@@ -370,7 +387,7 @@ function App(){
   const totalResMins=resItems.reduce((acc,r)=>acc+calcMins(r.startTime,r.endTime),0);
 
   const handleStart=(act)=>{const a=(act||timerActivity).trim();if(!a)return;const now=new Date();const startISO=now.toISOString(),startStr=getTimeStr(now);setTimerActivity(a);setTimerStartStr(startStr);setTimerStartISO(startISO);setElapsed(0);setTimerRunning(true);LS.set(TIMER_KEY,{activity:a,startISO,startStr});};
-  const handleStop=()=>{const endStr=getTimeStr(new Date());setTimerRunning(false);const item={id:uid(),title:timerActivity,startTime:timerStartStr,endTime:endStr,note:''};const tr=results[today]||[];const updated={...results,[today]:[...tr,item]};saveRes(updated,today);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
+  const handleStop=()=>{const endStr=getTimeStr(new Date());setTimerRunning(false);const item={id:uid(),title:timerActivity,startTime:timerStartStr,endTime:endStr,note:''};const tr=results[today]||[];const updated={...results,[today]:[...tr,item]};saveRes(updated,today,true);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
   const handleCancel=()=>{setTimerRunning(false);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
 
   const handleCopyData=()=>{
@@ -778,8 +795,13 @@ function App(){
           e('button',{
             onClick:handleBulkSync,
             disabled:syncing,
-            style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#aaa':'#5a7a5a',color:'#fff'}
+            style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#aaa':'#5a7a5a',color:'#fff',marginBottom:'8px'}
           },syncing?syncMsg:'📤 過去データを一括同期する'),
+          e('button',{
+            onClick:handleResetAndSync,
+            disabled:syncing,
+            style:{width:'100%',padding:'10px',borderRadius:'12px',border:'2px solid #c0392b',fontSize:'13px',fontWeight:'700',background:'#fff',color:'#c0392b'}
+          },syncing?syncMsg:'🗑 スプシをリセットして再同期（重複修正用）'),
           !syncing&&syncMsg&&e('div',{style:{textAlign:'center',marginTop:'10px',fontSize:'13px',color:'#5a7a5a',fontWeight:'700'}},syncMsg)
         ),
 

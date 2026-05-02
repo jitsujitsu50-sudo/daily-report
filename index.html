@@ -229,22 +229,28 @@ function App(){
     autoFetchCalendar(getTodayStr());
   },[]);
 
-  // calId（カレンダーイベントID）ベースでマージ：日程変更/削除も追従
+  // calIdベースでマージ：日程変更/削除も追従。calId未付与の旧データはタイトル+開始時刻で照合
   const mergeCalendarEvents=(existing,freshEvents)=>{
-    const manual=existing.filter(item=>!item.calId);
     const localByCalId={};
     existing.forEach(item=>{if(item.calId)localByCalId[item.calId]=item;});
+    const usedExisting=new Set();
     const fresh=freshEvents.map(ev=>{
-      const old=localByCalId[ev.id];
+      let matched=localByCalId[ev.id];
+      if(matched){usedExisting.add(matched);}
+      else{
+        matched=existing.find(item=>!item.calId&&!usedExisting.has(item)&&item.title===ev.summary&&item.startTime===ev.startTime);
+        if(matched)usedExisting.add(matched);
+      }
       return{
-        id:old?old.id:uid(),
+        id:matched?matched.id:uid(),
         calId:ev.id,
         title:ev.summary,
         startTime:ev.startTime,
         endTime:ev.endTime,
-        note:old?(old.note||''):''
+        note:matched?(matched.note||''):''
       };
     });
+    const manual=existing.filter(item=>!item.calId&&!usedExisting.has(item));
     return[...manual,...fresh].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
   };
   // カレンダー自動取得（スケジュールに反映＆スプシ同期）
@@ -506,7 +512,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.5'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.6'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),

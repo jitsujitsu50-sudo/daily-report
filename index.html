@@ -229,27 +229,23 @@ function App(){
     autoFetchCalendar(getTodayStr());
   },[]);
 
-  // カレンダー自動取得（スケジュールに静かに反映）
+  // カレンダー自動取得（スケジュールに反映＆スプシ同期）
   const autoFetchCalendar=async(date)=>{
     try{
       const res=await fetch(`${GAS_URL}?date=${date}`);
       const data=await res.json();
       if(!Array.isArray(data))return;
-      // 時間付きイベントのみスケジュールに自動追加（重複チェックあり）
       const timed=data.filter(ev=>!ev.allDay&&ev.startTime&&ev.endTime);
       if(!timed.length)return;
-      setSchedules(prev=>{
-        const existing=prev[date]||[];
-        const existingTitles=existing.map(e=>e.title+e.startTime);
-        const newItems=timed
-          .filter(ev=>!existingTitles.includes(ev.summary+ev.startTime))
-          .map(ev=>({id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''}));
-        if(!newItems.length)return prev;
-        const merged=[...existing,...newItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
-        const updated={...prev,[date]:merged};
-        LS.set(SCHEDULE_KEY,updated);
-        return updated;
-      });
+      const current=LS.get(SCHEDULE_KEY)||{};
+      const existing=current[date]||[];
+      const existingTitles=existing.map(e=>e.title+e.startTime);
+      const newItems=timed
+        .filter(ev=>!existingTitles.includes(ev.summary+ev.startTime))
+        .map(ev=>({id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''}));
+      if(!newItems.length)return;
+      const merged=[...existing,...newItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
+      saveSch({...current,[date]:merged},date);
     }catch(err){}
   };
 
@@ -279,21 +275,25 @@ function App(){
         byDate[ev.date].push(ev);
       });
       if(Object.keys(byDate).length){
-        setSchedules(prev=>{
-          const updated={...prev};
-          Object.entries(byDate).forEach(([date,evs])=>{
-            const existing=updated[date]||[];
-            const existingKeys=existing.map(e=>e.title+e.startTime);
-            const newItems=evs
-              .filter(ev=>!existingKeys.includes(ev.summary+ev.startTime))
-              .map(ev=>({id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''}));
-            if(!newItems.length)return;
-            const merged=[...existing,...newItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
-            updated[date]=merged;
-          });
-          LS.set(SCHEDULE_KEY,updated);
-          return updated;
+        const current=LS.get(SCHEDULE_KEY)||{};
+        const updated={...current};
+        const datesToSync=[];
+        Object.entries(byDate).forEach(([date,evs])=>{
+          const existing=updated[date]||[];
+          const existingKeys=existing.map(e=>e.title+e.startTime);
+          const newItems=evs
+            .filter(ev=>!existingKeys.includes(ev.summary+ev.startTime))
+            .map(ev=>({id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''}));
+          if(!newItems.length)return;
+          const merged=[...existing,...newItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
+          updated[date]=merged;
+          datesToSync.push(date);
         });
+        if(datesToSync.length>0){
+          setSchedules(updated);
+          LS.set(SCHEDULE_KEY,updated);
+          datesToSync.forEach(d=>syncSchToGAS(d,updated[d]||[],true));
+        }
       }
     }catch(err){
       console.error('fetchMonth error:',err);
@@ -386,6 +386,16 @@ function App(){
     }
     setSyncing(false);setSyncMsg(`完了 ✅ ${dates.length}日分を同期しました`);
   };
+  const handleBulkSyncSchedules=async()=>{
+    const dates=Object.keys(schedules).filter(d=>(schedules[d]||[]).some(s=>s.title||s.startTime)).sort();
+    if(dates.length===0){setSyncMsg('同期するスケジュールがありません');return;}
+    setSyncing(true);setSyncMsg('');
+    for(let i=0;i<dates.length;i++){
+      setSyncMsg(`スケジュール同期中… ${i+1}/${dates.length}日`);
+      await syncSchToGAS(dates[i],schedules[dates[i]]||[],true);
+    }
+    setSyncing(false);setSyncMsg(`完了 ✅ スケジュール${dates.length}日分を同期しました`);
+  };
   const saveRes=(data,syncDate,immediate=true)=>{setResults(data);LS.set(RESULTS_KEY,data);if(syncDate!==undefined)syncDayToGAS(syncDate,data[syncDate]||[],immediate);};
   const resItems=results[resDate]||[];
   const [newResId,setNewResId]=useState(null);
@@ -468,7 +478,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.2'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.3'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -765,7 +775,12 @@ function App(){
             onClick:handleBulkSync,
             disabled:syncing,
             style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#aaa':'#5a7a5a',color:'#fff',marginBottom:'8px'}
-          },syncing?syncMsg:'📤 過去データを一括同期する'),
+          },syncing?syncMsg:'📤 実績を一括同期する'),
+          e('button',{
+            onClick:handleBulkSyncSchedules,
+            disabled:syncing,
+            style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#aaa':'#7b8ec8',color:'#fff',marginBottom:'8px'}
+          },syncing?syncMsg:'📅 スケジュールを一括同期する'),
           e('button',{
             onClick:handleResetAndSync,
             disabled:syncing,

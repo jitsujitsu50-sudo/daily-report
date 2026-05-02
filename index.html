@@ -389,9 +389,9 @@ function App(){
   const saveRes=(data,syncDate,immediate=false)=>{setResults(data);LS.set(RESULTS_KEY,data);if(syncDate!==undefined)syncDayToGAS(syncDate,data[syncDate]||[],immediate);};
   const resItems=results[resDate]||[];
   const [newResId,setNewResId]=useState(null);
-  const addRes=()=>{const id=uid();saveRes({...results,[resDate]:[...resItems,{id,title:'',startTime:'',endTime:'',note:''}]});setNewResId(id);};
-  const updateRes=(item)=>saveRes({...results,[resDate]:resItems.map(r=>r.id===item.id?item:r)});
-  const deleteRes=(id)=>saveRes({...results,[resDate]:resItems.filter(r=>r.id!==id)});
+  const addRes=()=>{const id=uid();saveRes({...results,[resDate]:[...resItems,{id,title:'',startTime:'',endTime:'',note:''}]},resDate);setNewResId(id);};
+  const updateRes=(item)=>saveRes({...results,[resDate]:resItems.map(r=>r.id===item.id?item:r)},resDate);
+  const deleteRes=(id)=>saveRes({...results,[resDate]:resItems.filter(r=>r.id!==id)},resDate);
   const sortedRes=[...resItems].sort((a,b)=>(a.startTime?timeToMin(a.startTime):9999)-(b.startTime?timeToMin(b.startTime):9999));
   const totalResMins=resItems.reduce((acc,r)=>acc+calcMins(r.startTime,r.endTime),0);
 
@@ -468,7 +468,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.0'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.1'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),

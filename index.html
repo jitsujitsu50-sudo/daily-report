@@ -173,6 +173,7 @@ function App(){
   const [ntCategory,setNtCategory]=useState('');
   const [ntMonth,setNtMonth]=useState('');
   const [ntMemo,setNtMemo]=useState('');
+  const [ntEstMin,setNtEstMin]=useState('');
   const [taskCats,setTaskCats]=useState(DEFAULT_TASK_CATS);
   const [schedules,setSchedules]=useState({});
   const [schDate,setSchDate]=useState(today);
@@ -194,6 +195,7 @@ function App(){
   const [etCat,setEtCat]=useState('');
   const [etMonth,setEtMonth]=useState('');
   const [etMemo,setEtMemo]=useState('');
+  const [etEstMin,setEtEstMin]=useState('');
   // Calendar
   const [calDate,setCalDate]=useState(today);
   const [calEvents,setCalEvents]=useState([]);
@@ -305,12 +307,12 @@ function App(){
     fetch(`${GAS_URL}?${params}`).catch(()=>{});
   };
   const saveTasks=(list)=>{setTasks(list);LS.set(TASKS_KEY,list);syncTasksToGAS(list);};
-  const openTaskEdit=(task)=>{setEtTitle(task.title);setEtPriority(task.priority||'medium');setEtDue(task.dueDate||'');setEtCat(task.category||'');setEtMonth(task.month||'');setEtMemo(task.memo||'');setEditingTask(task);};
+  const openTaskEdit=(task)=>{setEtTitle(task.title);setEtPriority(task.priority||'medium');setEtDue(task.dueDate||'');setEtCat(task.category||'');setEtMonth(task.month||'');setEtMemo(task.memo||'');setEtEstMin(task.estMin||'');setEditingTask(task);};
   const closeTaskEdit=()=>setEditingTask(null);
-  const saveTaskEdit=()=>{updateTask(editingTask.id,{title:etTitle,priority:etPriority,dueDate:etDue,category:etCat,month:etMonth,memo:etMemo});closeTaskEdit();};
+  const saveTaskEdit=()=>{updateTask(editingTask.id,{title:etTitle,priority:etPriority,dueDate:etDue,category:etCat,month:etMonth,memo:etMemo,estMin:etEstMin});closeTaskEdit();};
   const deleteTaskEdit=()=>{deleteTask(editingTask.id);closeTaskEdit();};
   const saveTaskCats=(list)=>{setTaskCats(list);LS.set(TASK_CATS_KEY,list);};
-  const addTask=()=>{if(!ntTitle.trim())return;saveTasks([{id:uid(),title:ntTitle.trim(),priority:ntPriority,dueDate:ntDue,category:ntCategory,month:ntMonth,memo:ntMemo,done:false},...tasks]);setNtTitle('');setNtDue('');setNtPriority('medium');setNtCategory('');setNtMonth('');setNtMemo('');setShowNewTask(false);};
+  const addTask=()=>{if(!ntTitle.trim())return;saveTasks([{id:uid(),title:ntTitle.trim(),priority:ntPriority,dueDate:ntDue,category:ntCategory,month:ntMonth,memo:ntMemo,estMin:ntEstMin,done:false},...tasks]);setNtTitle('');setNtDue('');setNtPriority('medium');setNtCategory('');setNtMonth('');setNtMemo('');setNtEstMin('');setShowNewTask(false);};
   const toggleTask=(id)=>saveTasks(tasks.map(t=>t.id===id?{...t,done:!t.done}:t));
   const updateTask=(id,fields)=>saveTasks(tasks.map(t=>t.id===id?{...t,...fields}:t));
   const deleteTask=(id)=>saveTasks(tasks.filter(t=>t.id!==id));
@@ -325,12 +327,23 @@ function App(){
   const activeCnt=tasks.filter(t=>!t.done).length;
   const overdueCnt=tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
 
-  const saveSch=(data)=>{setSchedules(data);LS.set(SCHEDULE_KEY,data);};
+  const schSyncTimersRef=useRef({});
+  const syncSchToGAS=(date,dayItems,immediate=false)=>{
+    const doSync=()=>{
+      const entries=(dayItems||[]).filter(r=>r.title||r.startTime).map(r=>({s:r.startTime||'',e:r.endTime||'',t:r.title||'',n:r.note||''}));
+      const params=new URLSearchParams({action:'syncSchedules',date,entries:JSON.stringify(entries)});
+      return fetch(`${GAS_URL}?${params}`).catch(()=>{});
+    };
+    if(immediate)return doSync();
+    clearTimeout(schSyncTimersRef.current[date]);
+    schSyncTimersRef.current[date]=setTimeout(doSync,5000);
+  };
+  const saveSch=(data,syncDate,immediate=false)=>{setSchedules(data);LS.set(SCHEDULE_KEY,data);if(syncDate!==undefined)syncSchToGAS(syncDate,data[syncDate]||[],immediate);};
   const schItems=schedules[schDate]||[];
   const [newSchId,setNewSchId]=useState(null);
-  const addSch=()=>{const id=uid();const last=schItems[schItems.length-1];saveSch({...schedules,[schDate]:[...schItems,{id,title:'',startTime:last?.endTime||'',endTime:'',note:''}]});setNewSchId(id);};
-  const updateSch=(item)=>saveSch({...schedules,[schDate]:schItems.map(s=>s.id===item.id?item:s)});
-  const deleteSch=(id)=>saveSch({...schedules,[schDate]:schItems.filter(s=>s.id!==id)});
+  const addSch=()=>{const id=uid();const last=schItems[schItems.length-1];saveSch({...schedules,[schDate]:[...schItems,{id,title:'',startTime:last?.endTime||'',endTime:'',note:''}]},schDate);setNewSchId(id);};
+  const updateSch=(item)=>saveSch({...schedules,[schDate]:schItems.map(s=>s.id===item.id?item:s)},schDate);
+  const deleteSch=(id)=>saveSch({...schedules,[schDate]:schItems.filter(s=>s.id!==id)},schDate);
   const sortedSch=[...schItems].sort((a,b)=>(a.startTime?timeToMin(a.startTime):9999)-(b.startTime?timeToMin(b.startTime):9999));
 
   const syncDayToGAS=(date,dayItems,immediate=false)=>{
@@ -446,7 +459,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v5.8'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v5.9'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -871,6 +884,11 @@ function App(){
           e('span',{style:{fontSize:'13px',opacity:0.5}},'期日'),
           e('input',{type:'date',value:etDue,onChange:ev=>setEtDue(ev.target.value),style:{flex:1,border:'none',outline:'none',fontSize:'14px',color:'#2c2416',background:'#f0ebe0',padding:'8px 10px',borderRadius:'10px'}})
         ),
+        e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'見積もり時間'),
+        e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'14px',alignItems:'center'}},
+          [15,30,45,60,90,120,180].map(m=>e('button',{key:m,onClick:()=>setEtEstMin(String(m)),style:{padding:'5px 10px',borderRadius:'14px',border:'none',fontSize:'12px',background:String(etEstMin)===String(m)?'#7b8ec8':'#f0ebe0',color:String(etEstMin)===String(m)?'white':'#6b5a3a',fontWeight:String(etEstMin)===String(m)?'700':'400'}},`${m}分`)),
+          e('input',{type:'number',value:etEstMin,onChange:ev=>setEtEstMin(ev.target.value),placeholder:'分',style:{width:'70px',border:'none',outline:'none',fontSize:'13px',color:'#2c2416',background:'#f0ebe0',padding:'6px 10px',borderRadius:'10px'}})
+        ),
         e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'メモ'),
         e('textarea',{value:etMemo,onChange:ev=>setEtMemo(ev.target.value),placeholder:'補足・背景・詳細など…',rows:3,
           style:{width:'100%',border:'none',borderBottom:'2px solid #e8dfd0',outline:'none',fontSize:'14px',color:'#2c2416',background:'transparent',padding:'4px 0 10px',marginBottom:'20px',boxSizing:'border-box',resize:'none',fontFamily:'inherit'}}),
@@ -880,7 +898,7 @@ function App(){
         )
       )
     ),document.body),
-    showNewTask&&ReactDOM.createPortal(e('div',{onClick:()=>{setShowNewTask(false);setNtTitle('');setNtDue('');setNtPriority('medium');setNtCategory('');setNtMonth('');setNtMemo('');},style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'flex-end'}},
+    showNewTask&&ReactDOM.createPortal(e('div',{onClick:()=>{setShowNewTask(false);setNtTitle('');setNtDue('');setNtPriority('medium');setNtCategory('');setNtMonth('');setNtMemo('');setNtEstMin('');},style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'flex-end'}},
       e('div',{onClick:ev=>ev.stopPropagation(),style:{background:'#faf6f0',borderRadius:'20px 20px 0 0',padding:'20px 20px 36px',width:'100%',maxHeight:'85vh',overflowY:'auto',boxSizing:'border-box'}},
         e('div',{style:{width:'36px',height:'4px',background:'#ccc',borderRadius:'2px',margin:'0 auto 18px'}}),
         taskCats.length>0&&e('div',null,
@@ -904,6 +922,11 @@ function App(){
         e('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'14px'}},
           e('span',{style:{fontSize:'13px',opacity:0.5}},'期日'),
           e('input',{type:'date',value:ntDue,onChange:ev=>setNtDue(ev.target.value),style:{flex:1,border:'none',outline:'none',fontSize:'14px',color:'#2c2416',background:'#f0ebe0',padding:'8px 10px',borderRadius:'10px'}})
+        ),
+        e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'見積もり時間'),
+        e('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'14px',alignItems:'center'}},
+          [15,30,45,60,90,120,180].map(m=>e('button',{key:m,onClick:()=>setNtEstMin(String(m)),style:{padding:'5px 10px',borderRadius:'14px',border:'none',fontSize:'12px',background:String(ntEstMin)===String(m)?'#7b8ec8':'#f0ebe0',color:String(ntEstMin)===String(m)?'white':'#6b5a3a',fontWeight:String(ntEstMin)===String(m)?'700':'400'}},`${m}分`)),
+          e('input',{type:'number',value:ntEstMin,onChange:ev=>setNtEstMin(ev.target.value),placeholder:'分',style:{width:'70px',border:'none',outline:'none',fontSize:'13px',color:'#2c2416',background:'#f0ebe0',padding:'6px 10px',borderRadius:'10px'}})
         ),
         e('div',{style:{fontSize:'11px',opacity:0.4,marginBottom:'6px'}},'メモ'),
         e('textarea',{value:ntMemo,onChange:ev=>setNtMemo(ev.target.value),placeholder:'補足・背景・詳細など…',rows:3,

@@ -114,10 +114,8 @@ function ensureDayHeaders(sheet) {
       sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
     }
   } catch (e) {}
-  // 日付列を文字列形式に固定（表形式化されている場合はスキップ）
-  try {
-    sheet.getRange('A:A').setNumberFormat('@');
-  } catch (e) {}
+  // 注: 旧バージョンは setNumberFormat('@') を呼んでいたが、表形式（型付きカラム）と衝突するため削除。
+  // 日付の型変換は normalizeDate() 側で吸収するため不要。
 }
 
 function getResultsSheet() {

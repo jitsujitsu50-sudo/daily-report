@@ -365,36 +365,51 @@ function App(){
     clearTimeout(syncTimersRef.current[date]);
     syncTimersRef.current[date]=setTimeout(doSync,5000);
   };
-  const handleResetAndSync=async()=>{
-    if(!confirm('スプレッドシートの全データを削除して再同期します。よろしいですか？'))return;
-    setSyncing(true);setSyncMsg('スプシをリセット中…');
-    await fetch(`${GAS_URL}?action=resetSheet`).catch(()=>{});
-    const dates=Object.keys(results).filter(d=>(results[d]||[]).some(r=>r.title||r.startTime)).sort();
-    for(let i=0;i<dates.length;i++){
-      setSyncMsg(`再同期中… ${i+1}/${dates.length}日`);
-      await syncDayToGAS(dates[i],results[dates[i]]||[],true);
-    }
-    setSyncing(false);setSyncMsg(`完了 ✅ ${dates.length}日分をクリーンに同期しました`);
+  const formatBulkData=(mapByDate)=>{
+    const out={};
+    Object.keys(mapByDate).forEach(date=>{
+      const items=(mapByDate[date]||[]).filter(r=>r.title||r.startTime).map(r=>({s:r.startTime||'',e:r.endTime||'',t:r.title||'',n:r.note||''}));
+      if(items.length)out[date]=items;
+    });
+    return out;
+  };
+  const bulkPost=async(action,data)=>{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,data})});
+    return res.json();
   };
   const handleBulkSync=async()=>{
-    const dates=Object.keys(results).filter(d=>(results[d]||[]).some(r=>r.title||r.startTime)).sort();
-    if(dates.length===0){setSyncMsg('同期する実績がありません');return;}
-    setSyncing(true);setSyncMsg('');
-    for(let i=0;i<dates.length;i++){
-      setSyncMsg(`同期中… ${i+1}/${dates.length}日`);
-      await syncDayToGAS(dates[i],results[dates[i]]||[],true);
-    }
-    setSyncing(false);setSyncMsg(`完了 ✅ ${dates.length}日分を同期しました`);
+    const data=formatBulkData(results);
+    const totalDates=Object.keys(data).length;
+    if(totalDates===0){setSyncMsg('同期する実績がありません');return;}
+    setSyncing(true);setSyncMsg('実績を一括同期中…');
+    try{
+      const result=await bulkPost('bulkResults',data);
+      setSyncMsg(`完了 ✅ 実績${totalDates}日 / ${result.rows||0}件を同期しました`);
+    }catch(err){setSyncMsg('エラー ❌ '+err.message);}
+    setSyncing(false);
   };
   const handleBulkSyncSchedules=async()=>{
-    const dates=Object.keys(schedules).filter(d=>(schedules[d]||[]).some(s=>s.title||s.startTime)).sort();
-    if(dates.length===0){setSyncMsg('同期するスケジュールがありません');return;}
-    setSyncing(true);setSyncMsg('');
-    for(let i=0;i<dates.length;i++){
-      setSyncMsg(`スケジュール同期中… ${i+1}/${dates.length}日`);
-      await syncSchToGAS(dates[i],schedules[dates[i]]||[],true);
-    }
-    setSyncing(false);setSyncMsg(`完了 ✅ スケジュール${dates.length}日分を同期しました`);
+    const data=formatBulkData(schedules);
+    const totalDates=Object.keys(data).length;
+    if(totalDates===0){setSyncMsg('同期するスケジュールがありません');return;}
+    setSyncing(true);setSyncMsg('スケジュールを一括同期中…');
+    try{
+      const result=await bulkPost('bulkSchedules',data);
+      setSyncMsg(`完了 ✅ スケジュール${totalDates}日 / ${result.rows||0}件を同期しました`);
+    }catch(err){setSyncMsg('エラー ❌ '+err.message);}
+    setSyncing(false);
+  };
+  const handleResetAndSync=async()=>{
+    if(!confirm('スプシの全データ（実績＋スケジュール）を削除して、ローカルから再同期します。よろしいですか？'))return;
+    setSyncing(true);
+    try{
+      setSyncMsg('実績を再同期中…');
+      const r1=await bulkPost('bulkResults',formatBulkData(results));
+      setSyncMsg('スケジュールを再同期中…');
+      const r2=await bulkPost('bulkSchedules',formatBulkData(schedules));
+      setSyncMsg(`完了 ✅ 実績${r1.rows||0}件・スケジュール${r2.rows||0}件を再同期しました`);
+    }catch(err){setSyncMsg('エラー ❌ '+err.message);}
+    setSyncing(false);
   };
   const saveRes=(data,syncDate,immediate=true)=>{setResults(data);LS.set(RESULTS_KEY,data);if(syncDate!==undefined)syncDayToGAS(syncDate,data[syncDate]||[],immediate);};
   const resItems=results[resDate]||[];
@@ -478,7 +493,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.3'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.4'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),

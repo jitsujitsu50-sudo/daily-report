@@ -229,22 +229,38 @@ function App(){
     autoFetchCalendar(getTodayStr());
   },[]);
 
+  // calId（カレンダーイベントID）ベースでマージ：日程変更/削除も追従
+  const mergeCalendarEvents=(existing,freshEvents)=>{
+    const manual=existing.filter(item=>!item.calId);
+    const localByCalId={};
+    existing.forEach(item=>{if(item.calId)localByCalId[item.calId]=item;});
+    const fresh=freshEvents.map(ev=>{
+      const old=localByCalId[ev.id];
+      return{
+        id:old?old.id:uid(),
+        calId:ev.id,
+        title:ev.summary,
+        startTime:ev.startTime,
+        endTime:ev.endTime,
+        note:old?(old.note||''):''
+      };
+    });
+    return[...manual,...fresh].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
+  };
   // カレンダー自動取得（スケジュールに反映＆スプシ同期）
   const autoFetchCalendar=async(date)=>{
     try{
       const res=await fetch(`${GAS_URL}?date=${date}`);
       const data=await res.json();
       if(!Array.isArray(data))return;
-      const timed=data.filter(ev=>!ev.allDay&&ev.startTime&&ev.endTime);
-      if(!timed.length)return;
+      const timed=data.filter(ev=>!ev.allDay&&ev.startTime&&ev.endTime&&ev.id);
       const current=LS.get(SCHEDULE_KEY)||{};
       const existing=current[date]||[];
-      const existingTitles=existing.map(e=>e.title+e.startTime);
-      const newItems=timed
-        .filter(ev=>!existingTitles.includes(ev.summary+ev.startTime))
-        .map(ev=>({id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''}));
-      if(!newItems.length)return;
-      const merged=[...existing,...newItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
+      // calId付きの既存項目がない＆新規もない場合スキップ
+      const hasLocalCalItems=existing.some(i=>i.calId);
+      if(!timed.length&&!hasLocalCalItems)return;
+      const merged=mergeCalendarEvents(existing,timed);
+      if(JSON.stringify(merged)===JSON.stringify(existing))return;
       saveSch({...current,[date]:merged},date);
     }catch(err){}
   };
@@ -264,36 +280,33 @@ function App(){
     try{
       const res=await fetch(`${GAS_URL}?month=${month}`);
       const data=await res.json();
-      if(!Array.isArray(data)||!data.length){
-        setMonthFetching(false);
-        return;
-      }
+      if(!Array.isArray(data)){setMonthFetching(false);return;}
       const byDate={};
       data.forEach(ev=>{
-        if(!ev.date||ev.allDay||!ev.startTime||!ev.endTime)return;
+        if(!ev.date||ev.allDay||!ev.startTime||!ev.endTime||!ev.id)return;
         if(!byDate[ev.date])byDate[ev.date]=[];
         byDate[ev.date].push(ev);
       });
-      if(Object.keys(byDate).length){
-        const current=LS.get(SCHEDULE_KEY)||{};
-        const updated={...current};
-        const datesToSync=[];
-        Object.entries(byDate).forEach(([date,evs])=>{
-          const existing=updated[date]||[];
-          const existingKeys=existing.map(e=>e.title+e.startTime);
-          const newItems=evs
-            .filter(ev=>!existingKeys.includes(ev.summary+ev.startTime))
-            .map(ev=>({id:uid(),title:ev.summary,startTime:ev.startTime,endTime:ev.endTime,note:''}));
-          if(!newItems.length)return;
-          const merged=[...existing,...newItems].sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00'));
-          updated[date]=merged;
-          datesToSync.push(date);
-        });
-        if(datesToSync.length>0){
-          setSchedules(updated);
-          LS.set(SCHEDULE_KEY,updated);
-          datesToSync.forEach(d=>syncSchToGAS(d,updated[d]||[],true));
-        }
+      const current=LS.get(SCHEDULE_KEY)||{};
+      const updated={...current};
+      const datesToSync=[];
+      // この月の対象日を集約：既存ローカル＋取得結果両方
+      const monthDates=new Set();
+      Object.keys(current).forEach(d=>{if(d.startsWith(month))monthDates.add(d);});
+      Object.keys(byDate).forEach(d=>monthDates.add(d));
+      monthDates.forEach(date=>{
+        const existing=updated[date]||[];
+        const fresh=byDate[date]||[];
+        if(fresh.length===0&&!existing.some(i=>i.calId))return;
+        const merged=mergeCalendarEvents(existing,fresh);
+        if(JSON.stringify(merged)===JSON.stringify(existing))return;
+        updated[date]=merged;
+        datesToSync.push(date);
+      });
+      if(datesToSync.length>0){
+        setSchedules(updated);
+        LS.set(SCHEDULE_KEY,updated);
+        datesToSync.forEach(d=>syncSchToGAS(d,updated[d]||[],true));
       }
     }catch(err){
       console.error('fetchMonth error:',err);
@@ -493,7 +506,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.4'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.5'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),

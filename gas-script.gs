@@ -89,6 +89,7 @@ function getMonthEvents(monthStr) {
 
 function formatEvent(ev) {
   return {
+    id:        ev.getId(),
     summary:   ev.getTitle(),
     startTime: Utilities.formatDate(ev.getStartTime(), TZ, 'HH:mm'),
     endTime:   Utilities.formatDate(ev.getEndTime(),   TZ, 'HH:mm'),

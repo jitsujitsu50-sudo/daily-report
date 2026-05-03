@@ -442,21 +442,39 @@ function App(){
   const handleStop=()=>{const endStr=getTimeStr(new Date());setTimerRunning(false);const item={id:uid(),title:timerActivity,startTime:timerStartStr,endTime:endStr,note:''};const tr=results[today]||[];const updated={...results,[today]:[...tr,item]};saveRes(updated,today,true);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
   const handleCancel=()=>{setTimerRunning(false);setTimerActivity('');setTimerStartStr('');setTimerStartISO(null);setElapsed(0);LS.del(TIMER_KEY);};
 
-  const handleCopyData=()=>{
-    const lines=['## 実績データ（直近30日）'];
-    Object.keys(results).sort().reverse().slice(0,30).forEach(date=>{
-      const items=(results[date]||[]).filter(r=>r.title||r.startTime);
-      if(items.length>0){
-        lines.push('\n### '+date);
-        items.forEach(r=>lines.push('- '+(r.startTime||'?')+'〜'+(r.endTime||'?')+' '+(r.title||'')+(r.note?' ('+r.note+')':'')));
-      }
-    });
+  const buildAIContext=(question)=>{
+    const lines=[];
+    lines.push('今日の日付: '+today);
+    lines.push('');
+    lines.push('## 相談内容');
+    lines.push(question);
+    // 今後のスケジュール（直近14日）
+    const schLines=[];
+    for(let i=0;i<14;i++){const d=new Date();d.setDate(d.getDate()+i);const ds=d.toISOString().slice(0,10);const items=(schedules[ds]||[]).filter(s=>s.title||s.startTime);if(items.length>0){schLines.push('\n### '+ds);items.slice().sort((a,b)=>timeToMin(a.startTime||'00:00')-timeToMin(b.startTime||'00:00')).forEach(s=>schLines.push('- '+(s.startTime||'?')+'〜'+(s.endTime||'?')+' '+(s.title||'')));}}
+    if(schLines.length>0){lines.push('');lines.push('## 今後のスケジュール（直近14日）');schLines.forEach(l=>lines.push(l));}
+    // 未完了タスク
     const incomplete=tasks.filter(t=>!t.done);
     if(incomplete.length>0){
-      lines.push('\n## 未完了タスク');
-      incomplete.forEach(t=>lines.push('- ['+(t.priority||'-')+'] '+(t.title||'')+(t.dueDate?' 期日:'+t.dueDate:'')+(t.category?' ['+t.category+']':'')));
+      lines.push('');lines.push('## 未完了タスク');
+      incomplete.forEach(t=>{let row='- ['+(t.priority||'-')+'] '+(t.title||'');if(t.dueDate)row+=' 期日:'+t.dueDate;if(t.category)row+=' ['+t.category+']';if(t.estMin)row+=' 見積:'+t.estMin+'分';lines.push(row);if(t.memo)lines.push('  メモ: '+t.memo);});
     }
-    navigator.clipboard.writeText(lines.join('\n')).then(()=>setSyncMsg('コピーしました ✅')).catch(()=>setSyncMsg('コピー失敗 ❌'));
+    // 直近の実績（30日）
+    const resLines=[];
+    Object.keys(results).sort().reverse().slice(0,30).forEach(date=>{const items=(results[date]||[]).filter(r=>r.title||r.startTime);if(items.length>0){resLines.push('\n### '+date);items.forEach(r=>resLines.push('- '+(r.startTime||'?')+'〜'+(r.endTime||'?')+' '+(r.title||'')+(r.note?' ('+r.note+')':'')));}});
+    if(resLines.length>0){lines.push('');lines.push('## 直近の実績（30日）');resLines.forEach(l=>lines.push(l));}
+    return lines.join('\n');
+  };
+
+  const handleAIConsult=(question)=>{
+    const text=buildAIContext(question);
+    navigator.clipboard.writeText(text)
+      .then(()=>{setSyncMsg('コピーしました ✅ Claude.aiに貼り付けてください');setTimeout(()=>window.open('https://claude.ai/new','_blank'),200);})
+      .catch(()=>setSyncMsg('コピー失敗 ❌ 手動でデータをコピーしてください'));
+  };
+
+  const handleCopyData=()=>{
+    const text=buildAIContext('実績・スケジュール・タスクの全データ');
+    navigator.clipboard.writeText(text).then(()=>setSyncMsg('コピーしました ✅')).catch(()=>setSyncMsg('コピー失敗 ❌'));
   };
 
   const savePresets=(list)=>{setPresets(list);LS.set(PRESETS_KEY,list);};
@@ -511,7 +529,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.7'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.8'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -848,10 +866,10 @@ function App(){
             color:'#7b8ec8',
             bg:'#eef2ff',
           },
-        ].map((item,i)=>e('a',{
+        ].map((item,i)=>e('div',{
           key:i,
-          href:`https://claude.ai/chat/75588acb-d104-492b-bb3a-d1d34b9a2c47`,
-          style:{display:'block',textDecoration:'none',marginBottom:'14px'}
+          onClick:()=>handleAIConsult(item.msg),
+          style:{display:'block',cursor:'pointer',marginBottom:'14px'}
         },
           e(Card,{style:{padding:'18px 20px',borderLeft:`4px solid ${item.color}`,display:'flex',alignItems:'flex-start',gap:'14px'}},
             e('div',{style:{fontSize:'28px',flexShrink:0}},item.icon),
@@ -863,11 +881,12 @@ function App(){
           )
         )),
 
-        e('div',{style:{background:'rgba(123,142,200,0.1)',borderRadius:'14px',padding:'14px 16px',marginTop:'8px'}}),
+        e('div',{style:{background:'rgba(123,142,200,0.1)',borderRadius:'14px',padding:'14px 16px',marginTop:'8px'}},
           e('div',{style:{fontSize:'11px',color:'#5a6a9e',lineHeight:'1.8',textAlign:'center'}},
-            '💡 チャットが開いたら選んだ相談内容を送ってください',e('br'),
-            'カレンダーや実績を確認しながら提案します'
+            '💡 カードをタップするとデータが自動コピーされ、Claude.aiが開きます',e('br'),
+            'そのまま貼り付けて送信してください'
           )
+        )
       ),
 
       // PRESETS

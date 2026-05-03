@@ -21,6 +21,7 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents || '{}');
     if (body.action === 'bulkResults')   return jsonOut(handleBulkResults(body));
     if (body.action === 'bulkSchedules') return jsonOut(handleBulkSchedules(body));
+    if (body.action === 'syncTasks')     return jsonOut(writeTasks(body.tasks || []));
     return jsonOut({error: 'invalid post action'});
   } catch (err) {
     return jsonOut({error: err.toString()});
@@ -220,10 +221,13 @@ function handleResetSheet() {
 // タスク同期 ──────────────────────────────
 
 function handleSyncTasks(params) {
+  return writeTasks(JSON.parse(params.tasks || '[]'));
+}
+
+function writeTasks(tasks) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
-    const tasks = JSON.parse(params.tasks || '[]');
     const sheet = getTasksSheet();
     const lastRow = sheet.getLastRow();
     if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 10).clearContent();
@@ -245,7 +249,7 @@ function handleSyncTasks(params) {
       });
       sheet.getRange(2, 1, rows.length, 10).setValues(rows);
     }
-    return {ok: true};
+    return {ok: true, count: tasks.length};
   } finally {
     lock.releaseLock();
   }

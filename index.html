@@ -214,6 +214,10 @@ function App(){
   const [calViewMode,setCalViewMode]=useState('week');
   const [syncing,setSyncing]=useState(false);
   const [syncMsg,setSyncMsg]=useState('');
+  const [showImport,setShowImport]=useState(false);
+  const [importText,setImportText]=useState('');
+  const [importProposals,setImportProposals]=useState([]);
+  const [importChecked,setImportChecked]=useState(new Set());
   const tickRef=useRef(null);
   const syncTimersRef=useRef({});
 
@@ -462,7 +466,20 @@ function App(){
     const resLines=[];
     Object.keys(results).sort().reverse().slice(0,30).forEach(date=>{const items=(results[date]||[]).filter(r=>r.title||r.startTime);if(items.length>0){resLines.push('\n### '+date);items.forEach(r=>resLines.push('- '+(r.startTime||'?')+'〜'+(r.endTime||'?')+' '+(r.title||'')+(r.note?' ('+r.note+')':'')));}});
     if(resLines.length>0){lines.push('');lines.push('## 直近の実績（30日）');resLines.forEach(l=>lines.push(l));}
+    lines.push('');
+    lines.push('---');
+    lines.push('スケジュールを提案する場合は、以下の形式で含めてください（アプリへの自動取り込みに使用します）：');
+    lines.push('YYYY-MM-DD HH:MM-HH:MM タスク名');
+    lines.push('例: '+today+' 09:00-10:00 企画書作成');
     return lines.join('\n');
+  };
+
+  const parseScheduleProposals=(text)=>{
+    const items=[];
+    const re=/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})[〜~\-](\d{2}:\d{2})\s+(.+)/g;
+    let m;
+    while((m=re.exec(text))!==null) items.push({date:m[1],startTime:m[2],endTime:m[3],title:m[4].trim()});
+    return items;
   };
 
   const handleAIConsult=(question)=>{
@@ -529,7 +546,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.8'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v6.9'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -840,6 +857,12 @@ function App(){
           !syncing&&syncMsg&&e('div',{style:{textAlign:'center',marginTop:'10px',fontSize:'13px',color:'#5a7a5a',fontWeight:'700'}},syncMsg)
         ),
 
+        // AI提案取り込みボタン
+        e('button',{
+          onClick:()=>{setShowImport(true);setImportText('');setImportProposals([]);setImportChecked(new Set());},
+          style:{width:'100%',padding:'13px',borderRadius:'12px',border:'2px solid #7b8ec8',fontSize:'14px',fontWeight:'700',background:'#fff',color:'#7b8ec8',marginBottom:'20px'}
+        },'📥 AIの提案スケジュールを取り込む'),
+
         // 3つの選択肢
         [
           {
@@ -1004,7 +1027,65 @@ function App(){
           style:{width:'100%',border:'none',borderBottom:'2px solid #e8dfd0',outline:'none',fontSize:'14px',color:'#2c2416',background:'transparent',padding:'4px 0 10px',marginBottom:'20px',boxSizing:'border-box',resize:'none',fontFamily:'inherit'}}),
         e('button',{onClick:addTask,disabled:!ntTitle.trim(),style:{width:'100%',padding:'13px',borderRadius:'12px',border:'none',background:ntTitle.trim()?'#2c2416':'#ccc',color:'#f5f0e8',fontSize:'14px',fontWeight:'700'}},'追加')
       )
-    ),document.body)
+    ),document.body),
+
+    // AI提案取り込みシート
+    showImport&&ReactDOM.createPortal(
+      e('div',{onClick:()=>setShowImport(false),style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'flex-end'}},
+        e('div',{onClick:ev=>ev.stopPropagation(),style:{background:'#faf6f0',borderRadius:'20px 20px 0 0',padding:'20px 20px 36px',width:'100%',maxHeight:'85vh',overflowY:'auto',boxSizing:'border-box'}},
+          e('div',{style:{width:'36px',height:'4px',background:'#ccc',borderRadius:'2px',margin:'0 auto 18px'}}),
+          e('div',{style:{fontSize:'16px',fontWeight:'700',color:'#2c2416',marginBottom:'6px'}},'📥 AIの提案を取り込む'),
+          e('div',{style:{fontSize:'12px',color:'#6b5a3a',marginBottom:'12px'}},'Claude.aiの返答をそのまま貼り付けてください'),
+          e('textarea',{
+            value:importText,
+            onChange:ev=>{
+              const t=ev.target.value;
+              setImportText(t);
+              const p=parseScheduleProposals(t);
+              setImportProposals(p);
+              setImportChecked(new Set(p.map((_,i)=>i)));
+            },
+            placeholder:'Claude.aiの返答をここに貼り付け...',
+            rows:5,
+            style:{width:'100%',border:'1px solid #e8dfd0',borderRadius:'10px',padding:'10px',fontSize:'13px',resize:'none',boxSizing:'border-box',background:'#fdf9f4',marginBottom:'14px',fontFamily:'inherit'}
+          }),
+          importProposals.length>0&&e('div',{style:{marginBottom:'14px'}},
+            e('div',{style:{fontSize:'13px',fontWeight:'700',color:'#2c2416',marginBottom:'8px'}},importProposals.length+'件の提案を検出しました'),
+            importProposals.map((p,i)=>e('div',{
+              key:i,
+              onClick:()=>{const s=new Set(importChecked);s.has(i)?s.delete(i):s.add(i);setImportChecked(new Set(s));},
+              style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',borderRadius:'10px',background:importChecked.has(i)?'#eef2ff':'#f5f0e8',marginBottom:'6px',cursor:'pointer'}
+            },
+              e('div',{style:{width:'20px',height:'20px',borderRadius:'5px',border:'2px solid #7b8ec8',background:importChecked.has(i)?'#7b8ec8':'transparent',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:'13px',fontWeight:'700'}},importChecked.has(i)?'✓':''),
+              e('div',{style:{flex:1}},
+                e('div',{style:{fontSize:'13px',fontWeight:'700',color:'#2c2416'}},p.title),
+                e('div',{style:{fontSize:'11px',color:'#8a6a2e'}},p.date+' '+p.startTime+'〜'+p.endTime)
+              )
+            ))
+          ),
+          importProposals.length===0&&importText.length>20&&e('div',{style:{textAlign:'center',padding:'14px',fontSize:'13px',color:'#9a8a7a',background:'#f5f0e8',borderRadius:'10px',marginBottom:'14px'}},
+            'スケジュール形式（YYYY-MM-DD HH:MM-HH:MM タイトル）が見つかりませんでした'
+          ),
+          e('div',{style:{display:'flex',gap:'10px'}},
+            e('button',{onClick:()=>setShowImport(false),style:{flex:1,padding:'13px',borderRadius:'12px',border:'none',background:'#f0ebe0',color:'#6b5a3a',fontSize:'14px',fontWeight:'700'}},'キャンセル'),
+            e('button',{
+              onClick:()=>{
+                const checked=[...importChecked].map(i=>importProposals[i]);
+                if(checked.length===0)return;
+                const byDate={};
+                checked.forEach(p=>{if(!byDate[p.date])byDate[p.date]=[];byDate[p.date].push({id:uid(),title:p.title,startTime:p.startTime,endTime:p.endTime,note:''});});
+                const updated={...schedules};
+                Object.keys(byDate).forEach(date=>{updated[date]=[...(updated[date]||[]),...byDate[date]];});
+                Object.keys(byDate).forEach(date=>saveSch(updated,date,true));
+                setShowImport(false);
+                setSyncMsg('スケジュールに'+checked.length+'件追加しました ✅');
+              },
+              disabled:importChecked.size===0,
+              style:{flex:2,padding:'13px',borderRadius:'12px',border:'none',background:importChecked.size===0?'#ccc':'#7b8ec8',color:'#fff',fontSize:'14px',fontWeight:'700'}
+            },'スケジュールに追加 ('+importChecked.size+'件)')
+          )
+        )
+      ),document.body)
   );
 }
 

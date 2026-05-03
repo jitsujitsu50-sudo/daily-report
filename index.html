@@ -571,7 +571,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.7'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.8'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -859,16 +859,12 @@ function App(){
                       gTicks.map(h=>e('div',{key:h,style:{position:'absolute',left:`${h*60*(6/ganttZoom)}px`,top:0,bottom:0,width:'1px',background:h%6===0?'#ddd':'#f0e8d8',zIndex:0}})),
                       ganttRows.map((row,i)=>{
                         const ppm=6/ganttZoom;
-                        return e('div',{key:i,style:{position:'relative',marginBottom:'10px',zIndex:1}},
-                          e('div',{style:{fontSize:'10px',color:'#8a6a2e',marginBottom:'2px',whiteSpace:'nowrap'}},
-                            row.title||'（未入力）',
-                            row.type==='plan'&&e('span',{style:{marginLeft:'5px',fontSize:'9px',color:'#aaa'}},'未実施')
+                        return e('div',{key:i,style:{position:'relative',marginBottom:'6px',zIndex:1}},
+                          (row.type==='both'||row.type==='plan')&&e('div',{style:{position:'relative',height:'8px',marginBottom:'3px'}},
+                            (()=>{const l=timeToMin(row.ps)*ppm;const w=Math.max(calcMins(row.ps,row.pe)*ppm,4);const isPlanOnly=row.type==='plan';return e('div',{style:{position:'absolute',left:`${l}px`,width:`${w}px`,height:'100%',background:isPlanOnly?'#ccc':SCH_COLOR,borderRadius:'4px',opacity:isPlanOnly?0.65:0.5,display:'flex',alignItems:'center',paddingLeft:'5px',overflow:'hidden'}},isPlanOnly&&w>40&&e('span',{style:{fontSize:'8px',color:'#888',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},row.title));})()
                           ),
-                          (row.type==='both'||row.type==='plan')&&e('div',{style:{position:'relative',height:'7px',marginBottom:'3px'}},
-                            (()=>{const l=timeToMin(row.ps)*ppm;const w=Math.max(calcMins(row.ps,row.pe)*ppm,4);return e('div',{style:{position:'absolute',left:`${l}px`,width:`${w}px`,height:'100%',background:row.type==='plan'?'#ccc':SCH_COLOR,borderRadius:'4px',opacity:row.type==='plan'?0.7:0.5}});})()
-                          ),
-                          (row.type==='both'||row.type==='actual')&&e('div',{style:{position:'relative',height:'13px'}},
-                            (()=>{const l=timeToMin(row.as)*ppm;const w=Math.max(calcMins(row.as,row.ae)*ppm,4);return e('div',{style:{position:'absolute',left:`${l}px`,width:`${w}px`,height:'100%',background:RES_COLOR,borderRadius:'4px',opacity:0.85,display:'flex',alignItems:'center',paddingLeft:'4px',overflow:'hidden'}},e('span',{style:{fontSize:'9px',color:'white',fontWeight:'700',whiteSpace:'nowrap'}},calcDur(row.as,row.ae)));})()
+                          (row.type==='both'||row.type==='actual')&&e('div',{style:{position:'relative',height:'16px'}},
+                            (()=>{const l=timeToMin(row.as)*ppm;const w=Math.max(calcMins(row.as,row.ae)*ppm,4);return e('div',{style:{position:'absolute',left:`${l}px`,width:`${w}px`,height:'100%',background:RES_COLOR,borderRadius:'5px',opacity:0.88,display:'flex',alignItems:'center',paddingLeft:'5px',overflow:'hidden',gap:'4px'}},w>50&&e('span',{style:{fontSize:'9px',color:'white',fontWeight:'700',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flex:1}},row.title),w>28&&e('span',{style:{fontSize:'9px',color:'rgba(255,255,255,0.85)',whiteSpace:'nowrap',flexShrink:0}},calcDur(row.as,row.ae)));})()
                           )
                         );
                       })

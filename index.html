@@ -101,7 +101,7 @@ function DatePicker({value,onChange,max,label,totalMins}){
   );
 }
 
-function TimeRow({item,onUpdate,onDelete,accentColor,presets,autoOpen,onAutoOpenDone}){
+function TimeRow({item,onUpdate,onDelete,accentColor,presets,autoOpen,onAutoOpenDone,onConvert}){
   const [open,setOpen]=useState(false);
   const [t,setT]=useState(item.title||'');
   const [s,setS]=useState(item.startTime||'');
@@ -124,6 +124,7 @@ function TimeRow({item,onUpdate,onDelete,accentColor,presets,autoOpen,onAutoOpen
           item.note&&e('span',{style:{marginLeft:'8px',opacity:0.45}},`📝 ${item.note}`)
         )
       ),
+      onConvert&&e('button',{onClick:ev=>{ev.stopPropagation();onConvert(item);},style:{width:'28px',height:'28px',borderRadius:'50%',border:'2px solid #6b9e78',background:'transparent',color:'#6b9e78',fontSize:'13px',fontWeight:'700',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer'}},'✓'),
       e('span',{style:{fontSize:'14px',opacity:0.25}},'›')
     ),
     open&&ReactDOM.createPortal(e('div',{onClick:()=>setOpen(false),style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'flex-end'}},
@@ -142,9 +143,12 @@ function TimeRow({item,onUpdate,onDelete,accentColor,presets,autoOpen,onAutoOpen
         ),
         e('input',{type:'text',value:n,onChange:ev=>setN(ev.target.value),placeholder:'メモ（任意）',
           style:{width:'100%',border:'none',borderBottom:'1px solid #e8dfd0',outline:'none',fontSize:'14px',color:'#2c2416',background:'transparent',padding:'4px 0 8px',marginBottom:'20px',boxSizing:'border-box'}}),
-        e('div',{style:{display:'flex',gap:'10px'}},
-          e('button',{onClick:handleDelete,style:{flex:1,padding:'13px',borderRadius:'12px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'14px',fontWeight:'700'}},'削除'),
-          e('button',{onClick:handleSave,style:{flex:2,padding:'13px',borderRadius:'12px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'14px',fontWeight:'700'}},'保存')
+        e('div',{style:{display:'flex',flexDirection:'column',gap:'8px'}},
+          e('div',{style:{display:'flex',gap:'10px'}},
+            e('button',{onClick:handleDelete,style:{flex:1,padding:'13px',borderRadius:'12px',border:'none',background:'#fdecea',color:'#c87060',fontSize:'14px',fontWeight:'700'}},'削除'),
+            e('button',{onClick:handleSave,style:{flex:2,padding:'13px',borderRadius:'12px',border:'none',background:'#2c2416',color:'#f5f0e8',fontSize:'14px',fontWeight:'700'}},'保存')
+          ),
+          onConvert&&e('button',{onClick:()=>{onConvert({...item,title:t,startTime:s,endTime:en,note:n});setOpen(false);},style:{width:'100%',padding:'13px',borderRadius:'12px',border:'none',background:'#6b9e78',color:'#fff',fontSize:'14px',fontWeight:'700'}},'✅ 実績に変換して削除')
         )
       )
     ),document.body)
@@ -376,6 +380,7 @@ function App(){
   const addSch=()=>{const id=uid();const last=schItems[schItems.length-1];saveSch({...schedules,[schDate]:[...schItems,{id,title:'',startTime:last?.endTime||'',endTime:'',note:''}]},schDate);setNewSchId(id);};
   const updateSch=(item)=>saveSch({...schedules,[schDate]:schItems.map(s=>s.id===item.id?item:s)},schDate);
   const deleteSch=(id)=>saveSch({...schedules,[schDate]:schItems.filter(s=>s.id!==id)},schDate);
+  const handleConvertToResult=(item)=>{const rItems=results[schDate]||[];const newItem={id:uid(),title:item.title,startTime:item.startTime,endTime:item.endTime,note:item.note};saveRes({...results,[schDate]:[...rItems,newItem]},schDate,true);deleteSch(item.id);};
   const sortedSch=[...schItems].sort((a,b)=>(a.startTime?timeToMin(a.startTime):9999)-(b.startTime?timeToMin(b.startTime):9999));
 
   const syncDayToGAS=(date,dayItems,immediate=false)=>{
@@ -549,7 +554,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.1'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.2'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -673,7 +678,7 @@ function App(){
           ),
           sortedSch.length===0&&e(Card,{style:{padding:'28px 20px',textAlign:'center',marginBottom:'12px'}},e('div',{style:{fontSize:'28px',marginBottom:'8px'}},'🗓'),e('div',{style:{fontSize:'13px',opacity:0.5}},'スケジュールがありません')),
           e('button',{onClick:addSch,style:{width:'100%',padding:'12px',borderRadius:'14px',border:`2px dashed ${SCH_COLOR}80`,background:'transparent',color:SCH_COLOR,fontSize:'14px',fontWeight:'700',marginBottom:'12px'}},'＋ 予定を追加'),
-          sortedSch.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateSch,onDelete:deleteSch,accentColor:SCH_COLOR,presets,autoOpen:item.id===newSchId,onAutoOpenDone:()=>setNewSchId(null)}))
+          sortedSch.map(item=>e(TimeRow,{key:item.id,item,onUpdate:updateSch,onDelete:deleteSch,accentColor:SCH_COLOR,presets,autoOpen:item.id===newSchId,onAutoOpenDone:()=>setNewSchId(null),onConvert:handleConvertToResult}))
         )
       ),
 

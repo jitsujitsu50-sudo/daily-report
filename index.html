@@ -442,6 +442,50 @@ function App(){
     }catch(err){setSyncMsg('エラー ❌ '+err.message);}
     setSyncing(false);
   };
+  const handleFetchCalendarAndSync=async()=>{
+    const today=new Date();
+    const months=[];
+    for(let i=0;i<=6;i++){
+      const d=new Date(today.getFullYear(),today.getMonth()+i,1);
+      months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+    }
+    setSyncing(true);
+    let current=LS.get(SCHEDULE_KEY)||{};
+    for(const month of months){
+      setSyncMsg(`カレンダーから${month}を取得中…`);
+      try{
+        const res=await fetch(`${GAS_URL}?month=${month}`);
+        const data=await res.json();
+        if(!Array.isArray(data))continue;
+        const byDate={};
+        data.forEach(ev=>{
+          if(!ev.date||ev.allDay||!ev.startTime||!ev.endTime||!ev.id)return;
+          if(!byDate[ev.date])byDate[ev.date]=[];
+          byDate[ev.date].push(ev);
+        });
+        const monthDates=new Set();
+        Object.keys(current).forEach(d=>{if(d.startsWith(month))monthDates.add(d);});
+        Object.keys(byDate).forEach(d=>monthDates.add(d));
+        monthDates.forEach(date=>{
+          const existing=current[date]||[];
+          const fresh=byDate[date]||[];
+          if(fresh.length===0&&!existing.some(i=>i.calId))return;
+          current[date]=mergeCalendarEvents(existing,fresh);
+        });
+      }catch(err){}
+    }
+    setSchedules(current);
+    LS.set(SCHEDULE_KEY,current);
+    const data=formatBulkData(current);
+    const totalDates=Object.keys(data).length;
+    if(totalDates===0){setSyncMsg('同期するスケジュールがありません');setSyncing(false);return;}
+    setSyncMsg('スプシに一括同期中…');
+    try{
+      const result=await bulkPost('bulkSchedules',data);
+      setSyncMsg(`完了 ✅ スケジュール${totalDates}日 / ${result.rows||0}件を同期しました`);
+    }catch(err){setSyncMsg('エラー ❌ '+err.message);}
+    setSyncing(false);
+  };
   const handleResetAndSync=async()=>{
     if(!confirm('スプシの全データ（実績＋スケジュール）を削除して、ローカルから再同期します。よろしいですか？'))return;
     setSyncing(true);
@@ -897,10 +941,15 @@ function App(){
             style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#aaa':'#5a7a5a',color:'#fff',marginBottom:'8px'}
           },syncing?syncMsg:'📤 実績を一括同期する'),
           e('button',{
+            onClick:handleFetchCalendarAndSync,
+            disabled:syncing,
+            style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#aaa':'#e8a838',color:'#fff',marginBottom:'8px'}
+          },syncing?syncMsg:'📅 カレンダーから取得してスプシ同期（今月〜6ヶ月先）'),
+          e('button',{
             onClick:handleBulkSyncSchedules,
             disabled:syncing,
             style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#aaa':'#7b8ec8',color:'#fff',marginBottom:'8px'}
-          },syncing?syncMsg:'📅 スケジュールを一括同期する'),
+          },syncing?syncMsg:'📅 スケジュールを一括同期する（ローカルのみ）'),
           e('button',{
             onClick:handleResetAndSync,
             disabled:syncing,

@@ -431,6 +431,33 @@ function App(){
     }catch(err){setSyncMsg('エラー ❌ '+err.message);}
     setSyncing(false);
   };
+  const handleDeduplicateSchedules=()=>{
+    const updated={};
+    let removed=0;
+    Object.keys(schedules).forEach(date=>{
+      const items=schedules[date]||[];
+      const calItems=items.filter(i=>i.calId);
+      if(calItems.length===0){updated[date]=items;return;}
+      const calByTime={};
+      calItems.forEach(i=>{if(i.startTime)calByTime[i.startTime]=i;});
+      const deduped=items.filter(item=>{
+        if(item.calId)return true;
+        const match=calByTime[item.startTime];
+        if(match){if(item.note&&!match.note)match.note=item.note;removed++;return false;}
+        return true;
+      });
+      updated[date]=deduped;
+    });
+    if(removed===0){setSyncMsg('重複は見つかりませんでした');return;}
+    setSchedules(updated);
+    LS.set(SCHEDULE_KEY,updated);
+    setSyncing(true);
+    setSyncMsg(`重複${removed}件を解消中…`);
+    bulkPost('bulkSchedules',formatBulkData(updated))
+      .then(r=>setSyncMsg(`完了 ✅ 重複${removed}件を解消・スプシ同期しました`))
+      .catch(err=>setSyncMsg('エラー ❌ '+err.message))
+      .finally(()=>setSyncing(false));
+  };
   const handleFetchCalendarAndSync=async()=>{
     const today=new Date();
     const months=[];
@@ -604,7 +631,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.9'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.10'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -934,6 +961,11 @@ function App(){
             disabled:syncing,
             style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#aaa':'#e8a838',color:'#fff',marginBottom:'8px'}
           },syncing?syncMsg:'📅 スケジュールをスプシ同期（今月〜6ヶ月先）'),
+          e('button',{
+            onClick:handleDeduplicateSchedules,
+            disabled:syncing,
+            style:{width:'100%',padding:'10px',borderRadius:'12px',border:'2px solid #c0392b',fontSize:'13px',fontWeight:'700',background:'#fff',color:'#c0392b',marginBottom:'8px'}
+          },syncing?syncMsg:'🔧 スケジュール重複を解消する'),
           e('button',{
             onClick:handleResetAndSync,
             disabled:syncing,

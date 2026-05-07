@@ -230,7 +230,7 @@ function writeTasks(tasks) {
     lock.waitLock(10000);
     const sheet = getTasksSheet();
     const lastRow = sheet.getLastRow();
-    if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 10).clearContent();
+    if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 11).clearContent();
     if (tasks.length > 0) {
       const now = nowStr();
       const rows = tasks.map(function(t) {

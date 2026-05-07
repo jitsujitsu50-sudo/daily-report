@@ -373,14 +373,19 @@ function App(){
     if(!t.done){setCompletingTask(t);setCompletingMin(t.estMin||'');}
     else saveTasks(tasks.map(t=>t.id===id?{...t,done:false,actualMin:undefined}:t));
   };
-  const confirmComplete=(min,startTime)=>{
-    saveTasks(tasks.map(t=>t.id===completingTask.id?{...t,done:true,actualMin:min?parseInt(min):undefined}:t));
-    if(startTime&&min){
-      const endTotalMin=timeToMin(startTime)+parseInt(min);
-      const endTime=`${String(Math.floor(endTotalMin/60)).padStart(2,'0')}:${String(endTotalMin%60).padStart(2,'0')}`;
-      const today=getTodayStr();
+  const confirmComplete=(min)=>{
+    const mins=min?parseInt(min):undefined;
+    saveTasks(tasks.map(t=>t.id===completingTask.id?{...t,done:true,actualMin:mins}:t));
+    if(mins){
+      const now=new Date();
+      const endTotalMin=now.getHours()*60+now.getMinutes();
+      const startTotalMin=endTotalMin-mins;
+      const fmt=(m)=>`${String(Math.floor(Math.max(0,m)/60)).padStart(2,'0')}:${String(Math.max(0,m)%60).padStart(2,'0')}`;
+      const endTime=fmt(endTotalMin);
+      const startTime=fmt(startTotalMin);
+      const todayStr=getTodayStr();
       const newItem={id:uid(),title:completingTask.title,startTime,endTime,note:'タスク完了'};
-      saveRes({...results,[today]:[...(results[today]||[]),newItem]},today,true);
+      saveRes({...results,[todayStr]:[...(results[todayStr]||[]),newItem]},todayStr,true);
     }
     setCompletingTask(null);setCompletingMin('');setCompletingStart('');
   };
@@ -651,7 +656,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.12'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.13'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -1189,12 +1194,10 @@ function App(){
           e('div',{style:{width:'36px',height:'4px',background:'#ccc',borderRadius:'2px',margin:'0 auto 18px'}}),
           e('div',{style:{fontSize:'16px',fontWeight:'700',color:'#2c2416',marginBottom:'4px'}},'✅ タスク完了'),
           e('div',{style:{fontSize:'14px',color:'#6b5a3a',marginBottom:'16px'}},completingTask.title),
-          e('div',{style:{fontSize:'13px',color:'#8a6a2e',marginBottom:'6px'}},`開始時刻（実績シートにも登録）　※スキップ可`),
-          e('input',{type:'time',value:completingStart,onChange:ev=>setCompletingStart(ev.target.value),style:{width:'100%',padding:'12px',borderRadius:'10px',border:'1px solid #ddd',fontSize:'16px',boxSizing:'border-box',marginBottom:'12px'}}),
-          e('div',{style:{fontSize:'13px',color:'#8a6a2e',marginBottom:'6px'}},`かかった時間（分）${completingTask.estMin?`　見積: ${completingTask.estMin}分`:''}`),
+          e('div',{style:{fontSize:'13px',color:'#8a6a2e',marginBottom:'6px'}},`かかった時間（分）${completingTask.estMin?`　見積: ${completingTask.estMin}分`:''}　入力すると実績にも自動登録`),
           e('input',{type:'number',min:'1',value:completingMin,onChange:ev=>setCompletingMin(ev.target.value),placeholder:'例: 30',style:{width:'100%',padding:'12px',borderRadius:'10px',border:'1px solid #ddd',fontSize:'16px',boxSizing:'border-box',marginBottom:'12px'}}),
-          e('button',{onClick:()=>confirmComplete(completingMin,completingStart),style:{width:'100%',padding:'13px',borderRadius:'12px',border:'none',background:'#5a7a5a',color:'#fff',fontSize:'15px',fontWeight:'700',marginBottom:'8px'}},'完了にする'),
-          e('button',{onClick:()=>confirmComplete('',''),style:{width:'100%',padding:'11px',borderRadius:'12px',border:'1px solid #ccc',background:'#fff',color:'#888',fontSize:'13px'}},'時間を入力せず完了')
+          e('button',{onClick:()=>confirmComplete(completingMin),style:{width:'100%',padding:'13px',borderRadius:'12px',border:'none',background:'#5a7a5a',color:'#fff',fontSize:'15px',fontWeight:'700',marginBottom:'8px'}},'完了にする'),
+          e('button',{onClick:()=>confirmComplete(''),style:{width:'100%',padding:'11px',borderRadius:'12px',border:'1px solid #ccc',background:'#fff',color:'#888',fontSize:'13px'}},'時間を入力せず完了')
         )
       ),document.body
     ),

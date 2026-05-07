@@ -167,7 +167,8 @@ function TaskItem({task,onToggle,onEdit}){
         e('span',{style:{fontSize:'10px',fontWeight:'700',color:p.color,background:p.bg,padding:'2px 8px',borderRadius:'8px'}},p.label),
         task.category&&e('span',{style:{fontSize:'10px',fontWeight:'700',color:'#8a6a2e',background:'#fdf6e8',padding:'2px 8px',borderRadius:'8px'}},task.category),
         task.month&&e('span',{style:{fontSize:'10px',fontWeight:'700',color:'white',background:'#7b8ec8',padding:'2px 8px',borderRadius:'8px'}},task.month),
-        task.dueDate&&e('span',{style:{fontSize:'11px',color:overdue?'#c87060':'#8a6a2e',fontWeight:overdue?'700':'400'}},overdue?`⚠️ ${formatDateShort(task.dueDate)}`:`📅 ${formatDateShort(task.dueDate)}`)
+        task.dueDate&&e('span',{style:{fontSize:'11px',color:overdue?'#c87060':'#8a6a2e',fontWeight:overdue?'700':'400'}},overdue?`⚠️ ${formatDateShort(task.dueDate)}`:`📅 ${formatDateShort(task.dueDate)}`),
+        task.done&&task.actualMin&&e('span',{style:{fontSize:'10px',fontWeight:'700',color:'#5a7a5a',background:'#eaf3ea',padding:'2px 8px',borderRadius:'8px'}},`⏱ ${task.actualMin}分`)
       )
     ),
     !task.done&&e('span',{style:{fontSize:'14px',opacity:0.25}},'›')
@@ -210,6 +211,8 @@ function App(){
   const [etMonth,setEtMonth]=useState('');
   const [etMemo,setEtMemo]=useState('');
   const [etEstMin,setEtEstMin]=useState('');
+  const [completingTask,setCompletingTask]=useState(null);
+  const [completingMin,setCompletingMin]=useState('');
   // Calendar
   const [calDate,setCalDate]=useState(today);
   const [calEvents,setCalEvents]=useState([]);
@@ -363,7 +366,16 @@ function App(){
   const deleteTaskEdit=()=>{deleteTask(editingTask.id);closeTaskEdit();};
   const saveTaskCats=(list)=>{setTaskCats(list);LS.set(TASK_CATS_KEY,list);};
   const addTask=()=>{if(!ntTitle.trim())return;saveTasks([{id:uid(),title:ntTitle.trim(),priority:ntPriority,dueDate:ntDue,category:ntCategory,month:ntMonth,memo:ntMemo,estMin:ntEstMin,done:false},...tasks]);setNtTitle('');setNtDue('');setNtPriority('medium');setNtCategory('');setNtMonth('');setNtMemo('');setNtEstMin('');setShowNewTask(false);};
-  const toggleTask=(id)=>saveTasks(tasks.map(t=>t.id===id?{...t,done:!t.done}:t));
+  const toggleTask=(id)=>{
+    const t=tasks.find(t=>t.id===id);
+    if(!t)return;
+    if(!t.done){setCompletingTask(t);setCompletingMin(t.estMin||'');}
+    else saveTasks(tasks.map(t=>t.id===id?{...t,done:false,actualMin:undefined}:t));
+  };
+  const confirmComplete=(min)=>{
+    saveTasks(tasks.map(t=>t.id===completingTask.id?{...t,done:true,actualMin:min?parseInt(min):undefined}:t));
+    setCompletingTask(null);setCompletingMin('');
+  };
   const updateTask=(id,fields)=>saveTasks(tasks.map(t=>t.id===id?{...t,...fields}:t));
   const deleteTask=(id)=>saveTasks(tasks.filter(t=>t.id!==id));
   const sortedTasks=[...tasks].sort((a,b)=>{if(a.done!==b.done)return a.done?1:-1;const po={high:0,medium:1,low:2};return po[a.priority]-po[b.priority];});
@@ -631,7 +643,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.10'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.11'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -1163,6 +1175,19 @@ function App(){
     ),document.body),
 
     // 実績変換モーダル
+    completingTask&&ReactDOM.createPortal(
+      e('div',{onClick:()=>setCompletingTask(null),style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',zIndex:2000,display:'flex',alignItems:'flex-end'}},
+        e('div',{onClick:ev=>ev.stopPropagation(),style:{background:'#faf6f0',borderRadius:'20px 20px 0 0',padding:'24px 20px 40px',width:'100%',boxSizing:'border-box'}},
+          e('div',{style:{width:'36px',height:'4px',background:'#ccc',borderRadius:'2px',margin:'0 auto 18px'}}),
+          e('div',{style:{fontSize:'16px',fontWeight:'700',color:'#2c2416',marginBottom:'4px'}},'✅ タスク完了'),
+          e('div',{style:{fontSize:'14px',color:'#6b5a3a',marginBottom:'16px'}},completingTask.title),
+          e('div',{style:{fontSize:'13px',color:'#8a6a2e',marginBottom:'6px'}},`かかった時間（分）${completingTask.estMin?`　見積: ${completingTask.estMin}分`:''}　※スキップ可`),
+          e('input',{type:'number',min:'1',value:completingMin,onChange:ev=>setCompletingMin(ev.target.value),placeholder:'例: 30',style:{width:'100%',padding:'12px',borderRadius:'10px',border:'1px solid #ddd',fontSize:'16px',boxSizing:'border-box',marginBottom:'12px'}}),
+          e('button',{onClick:()=>confirmComplete(completingMin),style:{width:'100%',padding:'13px',borderRadius:'12px',border:'none',background:'#5a7a5a',color:'#fff',fontSize:'15px',fontWeight:'700',marginBottom:'8px'}},'完了にする'),
+          e('button',{onClick:()=>confirmComplete(''),style:{width:'100%',padding:'11px',borderRadius:'12px',border:'1px solid #ccc',background:'#fff',color:'#888',fontSize:'13px'}},'時間を入力せず完了')
+        )
+      ),document.body
+    ),
     convertingItem&&ReactDOM.createPortal(
       e('div',{onClick:()=>setConvertingItem(null),style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',zIndex:2000,display:'flex',alignItems:'flex-end'}},
         e('div',{onClick:ev=>ev.stopPropagation(),style:{background:'#faf6f0',borderRadius:'20px 20px 0 0',padding:'24px 20px 40px',width:'100%',boxSizing:'border-box'}},

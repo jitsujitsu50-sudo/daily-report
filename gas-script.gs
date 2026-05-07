@@ -155,12 +155,12 @@ function getTasksSheet() {
   let sheet = ss.getSheetByName('タスク');
   if (!sheet) {
     sheet = ss.insertSheet('タスク');
-    sheet.appendRow(['ID', 'タイトル', '優先度', '期日', 'カテゴリ', '対象月', '見積分', '状態', 'メモ', '更新日時']);
-    sheet.getRange(1, 1, 1, 10).setFontWeight('bold');
-  } else if (sheet.getLastRow() > 0 && sheet.getRange(1, 7).getValue() !== '見積分') {
+    sheet.appendRow(['ID', 'タイトル', '優先度', '期日', 'カテゴリ', '対象月', '見積分', '実績分', '状態', 'メモ', '更新日時']);
+    sheet.getRange(1, 1, 1, 11).setFontWeight('bold');
+  } else if (sheet.getLastRow() > 0 && sheet.getRange(1, 8).getValue() !== '実績分') {
     sheet.clearContents();
-    sheet.appendRow(['ID', 'タイトル', '優先度', '期日', 'カテゴリ', '対象月', '見積分', '状態', 'メモ', '更新日時']);
-    sheet.getRange(1, 1, 1, 10).setFontWeight('bold');
+    sheet.appendRow(['ID', 'タイトル', '優先度', '期日', 'カテゴリ', '対象月', '見積分', '実績分', '状態', 'メモ', '更新日時']);
+    sheet.getRange(1, 1, 1, 11).setFontWeight('bold');
   }
   return sheet;
 }
@@ -242,12 +242,13 @@ function writeTasks(tasks) {
           t.category || '',
           t.month || '',
           t.estMin || '',
+          t.actualMin || '',
           t.done ? '完了' : '未完了',
           t.memo || '',
           now
         ];
       });
-      sheet.getRange(2, 1, rows.length, 10).setValues(rows);
+      sheet.getRange(2, 1, rows.length, 11).setValues(rows);
     }
     return {ok: true, count: tasks.length};
   } finally {

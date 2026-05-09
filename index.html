@@ -490,6 +490,29 @@ function App(){
       .catch(err=>setSyncMsg('エラー ❌ '+err.message))
       .finally(()=>setSyncing(false));
   };
+  const handleDeduplicateResults=()=>{
+    const updated={};
+    let removed=0;
+    Object.keys(results).forEach(date=>{
+      const items=results[date]||[];
+      const seen=new Set();
+      const deduped=items.filter(item=>{
+        const key=`${item.title||''}|${item.startTime||''}|${item.endTime||''}`;
+        if(seen.has(key)){removed++;return false;}
+        seen.add(key);return true;
+      });
+      updated[date]=deduped;
+    });
+    if(removed===0){setSyncMsg('実績に重複は見つかりませんでした');return;}
+    setResults(updated);
+    LS.set(RESULTS_KEY,updated);
+    setSyncing(true);
+    setSyncMsg(`実績重複${removed}件を解消中…`);
+    bulkPost('bulkResults',formatBulkData(updated))
+      .then(r=>setSyncMsg(`完了 ✅ 実績重複${removed}件を解消・スプシ同期しました`))
+      .catch(err=>setSyncMsg('エラー ❌ '+err.message))
+      .finally(()=>setSyncing(false));
+  };
   const handleFetchCalendarAndSync=async()=>{
     const today=new Date();
     const months=[];
@@ -663,7 +686,7 @@ function App(){
       e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}},
         e('div',null,
           e('div',{style:{fontSize:'10px',letterSpacing:'4px',opacity:0.5}},'DAILY REPORT'),
-          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.14'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
+          e('div',{style:{fontSize:'18px',fontWeight:'700'}},'日報 '),e('span',{style:{fontSize:'10px',opacity:0.5}},'v7.15'),e('button',{onClick:()=>location.reload(true),style:{marginLeft:'8px',fontSize:'11px',padding:'2px 8px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'rgba(245,240,232,0.6)',cursor:'pointer'}},'更新')
         ),
         e('div',{style:{display:'flex',gap:'8px',alignItems:'center'}},
           overdueCnt>0&&e('div',{style:{background:'#c87060',borderRadius:'16px',padding:'4px 10px',fontSize:'11px',fontWeight:'700'}},`⚠️ ${overdueCnt}件`),
@@ -993,6 +1016,11 @@ function App(){
             disabled:syncing,
             style:{width:'100%',padding:'12px',borderRadius:'12px',border:'none',fontSize:'14px',fontWeight:'700',background:syncing?'#aaa':'#e8a838',color:'#fff',marginBottom:'8px'}
           },syncing?syncMsg:'📅 スケジュールをスプシ同期（今月〜6ヶ月先）'),
+          e('button',{
+            onClick:handleDeduplicateResults,
+            disabled:syncing,
+            style:{width:'100%',padding:'10px',borderRadius:'12px',border:'2px solid #c0392b',fontSize:'13px',fontWeight:'700',background:'#fff',color:'#c0392b',marginBottom:'8px'}
+          },syncing?syncMsg:'🔧 実績重複を解消する'),
           e('button',{
             onClick:handleDeduplicateSchedules,
             disabled:syncing,
